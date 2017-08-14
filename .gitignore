@@ -1,0 +1,8 @@
+bin/
+obj/
+Properties/
+publish/
+*.pdb
+*.pfx
+*.suo
+*.user
