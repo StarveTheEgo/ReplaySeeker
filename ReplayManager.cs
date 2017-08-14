@@ -13,17 +13,28 @@ namespace ReplaySeeker
 {
     public class ReplayManager : IReplayManager
     {
-        public static readonly int TempReplayPathOffset = 4076; // 3484;
-        public static readonly int ReplayLengthOffset = 2708; //2900;
-        public static readonly int ReplayPositionOffset = 8048; // 7456;
-        public static readonly int ReplaySpeedOffset = 9652;//9060;
-        public static readonly int ReplaySpeedDividerOffset = 9656; //9064;
-        public static readonly int PauseOffset = 9660; //9068;
-        public static readonly int StatusCodeOffset = 9608;//9016;
+        public static readonly int TempReplayPathOffset = 3484;
+
+        public static readonly int ReplayLengthOffset = 2308;
+
+        public static readonly int ReplayPositionOffset = 7456;
+
+        public static readonly int ReplaySpeedOffset = 9060;
+
+        public static readonly int ReplaySpeedDividerOffset = 9064;
+
+        public static readonly int PauseOffset = 9068;
+
+        public static readonly int StatusCodeOffset = 9016;
+
         public static readonly int STATUS_NONE = 1313820229;
+
         public static readonly int STATUS_LOOP = 1280266064;
-        public static readonly int TurboModeLocation = 1873326436; // did not find yet.
+
+        public static readonly int TurboModeLocation = 1873326436;
+
         public static int ReplayRestartWaitTime = 1000;
+ 
         private ProcessMemoryReader pReader;
         private int memoryBlockLocation;
         private int lastPosition;
@@ -192,48 +203,72 @@ namespace ReplaySeeker
             Win32Msg.SetForegroundWindow(this.pReader.ReadProcess.MainWindowHandle);
         }
 
-        // @todo: Make it working
         public void Restart()
         {
+
             Point position = Cursor.Position;
+
             bool minimized = this.Minimized;
+
             Rectangle normalPosition = Win32Helper.GetWindowPlacement(this.pReader.ReadProcess.MainWindowHandle).NormalPosition;
+
             this.Minimized = false;
+
             this.BringWindowToForeground();
-            Thread.Sleep(500);         
-           /*
-            // here is original decompilled code
-            double num1 = 365.0 / 400.0;
+
+            Thread.Sleep(500);
+
+            double num1 = 369.0 / 400.0;
+
             double num2 = 23.0 / 24.0;
-            */
-            // i`ve tried some coordinates, did not make it working yet
-            // will investigate tomorrow
-            double num1 = this.pReader.CalculateAbsoluteCoordinateX(122);
-            double num2 = this.pReader.CalculateAbsoluteCoordinateY(39);
-            /*if (Screen.PrimaryScreen.Bounds != normalPosition)
+
+            if (Screen.PrimaryScreen.Bounds != normalPosition)
             {
-              num1 = ((double) normalPosition.X + num1 * (double) normalPosition.Width) / (double) Screen.PrimaryScreen.Bounds.Width;
-              num2 = ((double) normalPosition.Y + num2 * (double) normalPosition.Height) / (double) Screen.PrimaryScreen.Bounds.Height;
-            }*/
-            //int num3 = (int)(num1 * (double)ushort.MaxValue);
-            //int num4 = (int)(num2 * (double)ushort.MaxValue);
+
+                num1 = ((double)normalPosition.X + num1 * (double)normalPosition.Width) / (double)Screen.PrimaryScreen.Bounds.Width;
+
+                num2 = ((double)normalPosition.Y + num2 * (double)normalPosition.Height) / (double)Screen.PrimaryScreen.Bounds.Height;
+
+            }
+
+            int num3 = (int)(num1 * (double)ushort.MaxValue);
+
+            int num4 = (int)(num2 * (double)ushort.MaxValue);
+
             Send.MOUSEINPUT[] mInputs = new Send.MOUSEINPUT[3];
-            mInputs[0].dx = (int)num1;
-            mInputs[0].dy = (int)num2;
+
+            mInputs[0].dx = num3;
+
+            mInputs[0].dy = num4;
+
             mInputs[0].mouseData = 0U;
+
             mInputs[0].dwFlags = 32769U;
+
             mInputs[0].time = 0U;
+
             mInputs[1] = mInputs[0];
+
             mInputs[1].dwFlags = 32770U;
+
             mInputs[2] = mInputs[0];
+
             mInputs[2].dwFlags = 32772U;
+
             Send.MouseInput(mInputs);
+
             Thread.Sleep(ReplayManager.ReplayRestartWaitTime);
+
             if (minimized)
+
                 this.Minimized = true;
+
             Application.OpenForms[0].Activate();
-            //Cursor.Position = position;
+
+            Cursor.Position = position;
+
         }
+ 
 
         public void SetSpeed(int newSpeed)
         {
