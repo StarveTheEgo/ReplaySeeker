@@ -28,16 +28,16 @@ namespace ReplaySeeker
         public static Dictionary<string, OffsetsData> VersionsData = new Dictionary<string, OffsetsData>();
 
 
-        public static int TempReplayPathOffset { get; private set; } // 3484; (diff 592)
-        public static int ReplayLengthOffset { get; private set; } //2900; (diff -192) // upd: 2308 in 1.26a, so diff is: 400
-        public static int ReplayPositionOffset { get; private set; } // 7456; (diff 592)
-        public static int ReplaySpeedOffset { get; private set; } //9060; (diff: 592)
-        public static int ReplaySpeedDividerOffset { get; private set; } //9064; (diff: 592)
-        public static int PauseOffset { get; private set; }//9068; (diff: 592); //
-        public static int StatusCodeOffset { get; private set; }//9016; (diff: 592) // @todo 9024 for 1.27a (diff: 584)
+        public static int TempReplayPathOffset { get; private set; }
+        public static int ReplayLengthOffset { get; private set; }
+        public static int ReplayPositionOffset { get; private set; }
+        public static int ReplaySpeedOffset { get; private set; }
+        public static int ReplaySpeedDividerOffset { get; private set; }
+        public static int PauseOffset { get; private set; }
+        public static int StatusCodeOffset { get; private set; }
         public static readonly int STATUS_NONE = 1313820229;
         public static readonly int STATUS_LOOP = 1280266064;
-        public static readonly int TurboModeLocation = 1873326436; // did not find yet. Works only for legacy atm;
+        public static readonly int TurboModeLocation = 1873326436; // did not find yet.
         public static int ReplayRestartWaitTime = 1000;
 
         public static bool isScanning = false;
@@ -46,7 +46,8 @@ namespace ReplaySeeker
         private ProcessMemoryReader pReader;
         public static int memoryBlockLocation { get; private set; }
         private int lastPosition;
-        
+
+        public static string currentVersion;
 
         public static bool isScanFailed;
         public static bool IsEnabled
@@ -57,7 +58,30 @@ namespace ReplaySeeker
             }
         }
 
-       
+        public static OffsetsData getVersionOffsets(string version)
+        {
+            OffsetsData offsets;
+            if (!ReplayManager.VersionsData.TryGetValue(version, out offsets))
+            {
+                throw new Exception(String.Format("Unable to get {0} version offsets", version));
+            }
+            return offsets;
+        }
+
+        public static void updateCurrentVersion(string version)
+        {
+            OffsetsData offsets = ReplayManager.getVersionOffsets(version);
+            ReplayManager.ReplayLengthOffset = offsets.ReplayLengthOffset;
+            ReplayManager.TempReplayPathOffset = offsets.TempReplayPathOffset;
+            ReplayManager.ReplayPositionOffset = offsets.ReplayPositionOffset;
+            ReplayManager.ReplaySpeedOffset = offsets.ReplaySpeedOffset;
+            ReplayManager.ReplaySpeedDividerOffset = offsets.ReplaySpeedDividerOffset;
+            ReplayManager.PauseOffset = offsets.PauseOffset;
+            ReplayManager.StatusCodeOffset = offsets.StatusCodeOffset;
+
+            ReplayManager.currentVersion = version;
+        }
+
 
         public IProcessMemory Memory
         {
@@ -188,6 +212,17 @@ namespace ReplaySeeker
         public static void RegisterVersionData(string key, OffsetsData offsets)
         {
             ReplayManager.VersionsData.Add(key, offsets);
+            OffsetsData val;
+            if (ReplayManager.VersionsData.TryGetValue(key, out val))
+            {
+                // overwrite
+                ReplayManager.VersionsData[key] = offsets;
+            }
+            else
+            {
+                // append
+                ReplayManager.VersionsData.Add(key, offsets);
+            }
         }
 
         public ReplayManager(ProcessMemoryReader pReader, int memoryBlockLocation)
@@ -209,7 +244,7 @@ namespace ReplaySeeker
 
         public static void Scanner(object obj)
         {
-            if (ReplayManager.isScanning)
+            if (ReplayManager.isScanning || ReplayManager.currentVersion == null)
                 return;
             ReplayManager.isScanning = true;
             ReplayManager.isScanFailed = false;

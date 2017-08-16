@@ -72,6 +72,7 @@ namespace ReplaySeeker
     private ProgressBar scanProgressBar;
     private Button rescanButton;
     private ComboBox versionCBox;
+    private Label label11;
     private int playbackPosition;
 
     public Form AppForm
@@ -127,13 +128,19 @@ namespace ReplaySeeker
     public MainForm()
     {
       Control.CheckForIllegalCrossThreadCalls = false;
-      this.InitiateOffsetsData();
+     
       this.InitializeComponent();
+      this.InitiateOffsetsData();
       this.Icon = ReplaySeeker.Properties.Resources.Icon;
       this.menuStrip.Renderer = (ToolStripRenderer) UIRenderers.NoBorderRenderer;
       this.UnHook();
       this.doneSoundCmbB.SelectedIndex = RSCFG.Items["Options"].GetIntValue("DoneSound", 1);
-      //this.isLegacyCB.Checked = RSCFG.Items["Options"].GetIntValue("LegacyMode", 0) == 1;
+      string savedVersion = RSCFG.Items["Options"].GetStringValue("WarcraftVersion", "");
+      int savedVersionIndex = this.versionCBox.FindStringExact(savedVersion);
+      if (savedVersion != "" && savedVersionIndex != -1)
+      {
+          this.versionCBox.SelectedIndex = savedVersionIndex;
+      }
       this.turboCB.Checked = false; //RSCFG.Items["Options"].GetIntValue("TurboMode", 0) == 1;
       this.rgWar3processName = new Regex(RSCFG.Items["Options"].GetStringValue("ProcessName", "war3").Replace("*", ".*"), RegexOptions.IgnoreCase);
       this.LoadPlugins();
@@ -144,8 +151,10 @@ namespace ReplaySeeker
     {
         OffsetsData offsets;
         // diffs in comments are from 1.26 
-        offsets.ReplayLengthOffset = 2708;  // + 400
-        offsets.TempReplayPathOffset = 4076; // + 592 for rest
+
+        // 1.28.X
+        offsets.ReplayLengthOffset = 2708;  // diff: +400 //
+        offsets.TempReplayPathOffset = 4076; // diff: +592 for rest
         offsets.ReplayPositionOffset = 8048;
         offsets.ReplaySpeedOffset = 9652;
         offsets.ReplaySpeedDividerOffset = 9656;
@@ -153,7 +162,18 @@ namespace ReplaySeeker
         offsets.StatusCodeOffset = 9608;
         ReplayManager.RegisterVersionData("1.28", offsets);
 
-        offsets.ReplayLengthOffset = 2308;
+        // 1.27.X
+        offsets.ReplayLengthOffset = 2316;  // diff: +8 for everything
+        offsets.TempReplayPathOffset = 3492;
+        offsets.ReplayPositionOffset = 7464;
+        offsets.ReplaySpeedOffset = 9068;
+        offsets.ReplaySpeedDividerOffset = 9072;
+        offsets.PauseOffset = 9076;
+        offsets.StatusCodeOffset = 9024; //  
+        ReplayManager.RegisterVersionData("1.27", offsets); 
+
+        // 1.26.X
+        offsets.ReplayLengthOffset = 2308;  // @note it had 2900 after decompilling for some reason
         offsets.TempReplayPathOffset = 3484; 
         offsets.ReplayPositionOffset = 7456;
         offsets.ReplaySpeedOffset = 9060;
@@ -162,16 +182,43 @@ namespace ReplaySeeker
         offsets.StatusCodeOffset = 9016;
         ReplayManager.RegisterVersionData("1.26", offsets);
 
+        /* 
+         * custom offsets feature
+         * simple version atm, supports only one preset
+         * experimantal
+         * here is no any validation atm
+         * defaults to previous offset (1.26 atm)
+         */
+        offsets.ReplayLengthOffset = RSCFG.Items["CustomOffsets"].GetIntValue("ReplayLengthOffset", offsets.ReplayLengthOffset);
+        offsets.TempReplayPathOffset = RSCFG.Items["CustomOffsets"].GetIntValue("TempReplayPathOffset", offsets.TempReplayPathOffset);
+        offsets.ReplayPositionOffset = RSCFG.Items["CustomOffsets"].GetIntValue("ReplayPositionOffset", offsets.ReplayPositionOffset);
+        offsets.ReplaySpeedOffset = RSCFG.Items["CustomOffsets"].GetIntValue("ReplaySpeedOffset", offsets.ReplaySpeedOffset);
+        offsets.ReplaySpeedDividerOffset = RSCFG.Items["CustomOffsets"].GetIntValue("ReplaySpeedDividerOffset", offsets.ReplaySpeedDividerOffset);
+        offsets.PauseOffset = RSCFG.Items["CustomOffsets"].GetIntValue("PauseOffset", offsets.PauseOffset);
+        offsets.StatusCodeOffset = RSCFG.Items["CustomOffsets"].GetIntValue("StatusCodeOffset", offsets.StatusCodeOffset);
+        ReplayManager.RegisterVersionData("Custom", offsets);
         this.updateVersionsList();
     }
 
     private void updateVersionsList()
     {
         //versionCBox
-        foreach (KeyValuePair<string, OffsetsData> entry in ReplayManager.VersionsData)
+        var versions_list = ReplayManager.VersionsData.Keys;
+        if (versions_list.Count == 0)
         {
-            this.versionCBox.Items.Add(entry.Key);
+            MessageBox.Show("Current build is corrupted - no offsets settings found. Exiting.");
+            Application.Exit();
         }
+        foreach (String version in versions_list)
+        {
+            this.versionCBox.Items.Add(version);
+        }
+        this.versionCBox.SelectedIndex = 0;
+    }
+
+    private void updateVersion()
+    {
+        ReplayManager.updateCurrentVersion((string)this.versionCBox.SelectedItem);
     }
 
     protected override void Dispose(bool disposing)
@@ -195,6 +242,7 @@ namespace ReplaySeeker
         this.label3 = new System.Windows.Forms.Label();
         this.replaySpeedLabel = new System.Windows.Forms.Label();
         this.groupBox1 = new System.Windows.Forms.GroupBox();
+        this.versionCBox = new System.Windows.Forms.ComboBox();
         this.rescanButton = new System.Windows.Forms.Button();
         this.scanProgressBar = new System.Windows.Forms.ProgressBar();
         this.pluginsLV = new System.Windows.Forms.ListView();
@@ -226,7 +274,7 @@ namespace ReplaySeeker
         this.playbackSpeedTextBox = new System.Windows.Forms.TextBox();
         this.label10 = new System.Windows.Forms.Label();
         this.turboCB = new System.Windows.Forms.CheckBox();
-        this.versionCBox = new System.Windows.Forms.ComboBox();
+        this.label11 = new System.Windows.Forms.Label();
         this.panel1.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)(this.seekerPB)).BeginInit();
         ((System.ComponentModel.ISupportInitialize)(this.speedTrackBar)).BeginInit();
@@ -360,6 +408,7 @@ namespace ReplaySeeker
         // 
         // groupBox1
         // 
+        this.groupBox1.Controls.Add(this.label11);
         this.groupBox1.Controls.Add(this.versionCBox);
         this.groupBox1.Controls.Add(this.rescanButton);
         this.groupBox1.Controls.Add(this.scanProgressBar);
@@ -377,6 +426,16 @@ namespace ReplaySeeker
         this.groupBox1.Size = new System.Drawing.Size(280, 197);
         this.groupBox1.TabIndex = 9;
         this.groupBox1.TabStop = false;
+        // 
+        // versionCBox
+        // 
+        this.versionCBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+        this.versionCBox.FormattingEnabled = true;
+        this.versionCBox.Location = new System.Drawing.Point(91, 40);
+        this.versionCBox.Name = "versionCBox";
+        this.versionCBox.Size = new System.Drawing.Size(60, 21);
+        this.versionCBox.TabIndex = 24;
+        this.versionCBox.SelectedIndexChanged += new System.EventHandler(this.versionCBox_SelectedIndexChanged);
         // 
         // rescanButton
         // 
@@ -716,13 +775,16 @@ namespace ReplaySeeker
         this.turboCB.UseVisualStyleBackColor = true;
         this.turboCB.Visible = false;
         // 
-        // versionCBox
+        // label11
         // 
-        this.versionCBox.FormattingEnabled = true;
-        this.versionCBox.Location = new System.Drawing.Point(9, 40);
-        this.versionCBox.Name = "versionCBox";
-        this.versionCBox.Size = new System.Drawing.Size(142, 21);
-        this.versionCBox.TabIndex = 24;
+        this.label11.AutoSize = true;
+        this.label11.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+        this.label11.ForeColor = System.Drawing.Color.LightGray;
+        this.label11.Location = new System.Drawing.Point(6, 43);
+        this.label11.Name = "label11";
+        this.label11.Size = new System.Drawing.Size(75, 13);
+        this.label11.TabIndex = 25;
+        this.label11.Text = "W3 version:";
         // 
         // MainForm
         // 
@@ -885,20 +947,19 @@ namespace ReplaySeeker
       }
       else
       {
-          if (war3Process == null)
+          if (war3Process == null || ReplayManager.currentVersion == null)
               return;
           this.statusLabel.Text = "Scanning memory...";
           this.scanProgressBar.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
-          //Update();
           if (ReplayManager.manager == null)
           {
               if (!ReplayManager.isScanning)
               {
                   if (!ReplayManager.isScanFailed) {
-                      //this.isLegacyCB.Visible = false;
+                      this.versionCBox.Enabled = false;
                       ReplayManager.InitiateScan(war3Process, new ProcessMemoryReaderProgress(this.MemoryManager_MemoryScanProgress));
                   } else {
-                      //this.isLegacyCB.Visible = true;
+                      this.versionCBox.Enabled = true;
                       this.statusLabel.Text = "I sense no replay";
                       this.scanProgressBar.Visible = false;
                       this.rescanButton.Visible = true;
@@ -906,7 +967,7 @@ namespace ReplaySeeker
               }
               else
               {
-                  //this.isLegacyCB.Visible = false;
+                  this.versionCBox.Enabled = false;
               }
               return;
           }
@@ -942,7 +1003,7 @@ namespace ReplaySeeker
     {
       if (ReplayManager.manager == null)
         return;
-      //this.isLegacyCB.Visible = false;
+      this.versionCBox.Enabled = false;
       this.MemoryManager_MemoryScanProgress(0);
       this.scanProgressBar.Visible = false;
       this.seekerPB.Image = (Image) ReplaySeeker.Properties.Resources.BTNThirst;
@@ -971,7 +1032,7 @@ namespace ReplaySeeker
     {
       this.MemoryManager_MemoryScanProgress(0);
       this.replayUpdateTimer.Stop();
-      //this.isLegacyCB.Visible = true;
+      this.versionCBox.Enabled = true;
       this.isHooked = false;
       this.seekerPB.Image = (Image) ReplaySeeker.Properties.Resources.DISBTNThirst;
       this.scanProgressBar.Visible = true;
@@ -1238,8 +1299,23 @@ namespace ReplaySeeker
     private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
     {
       this.stop_sync();
+      string savedVersion = RSCFG.Items["Options"].GetStringValue("WarcraftVersion", "");
+      RSCFG.Items["Options"]["WarcraftVersion"] = (string)this.versionCBox.SelectedItem;
       RSCFG.Items["Options"]["TurboMode"] = 0; // (object)(this.turboCB.Checked ? 1 : 0);
       RSCFG.Items["Options"]["ProcessName"] = (object) this.rgWar3processName.ToString().Replace(".*", "*");
+
+      /*
+       * custom offsets feature, experimental; only one preset atm;
+       * */
+      OffsetsData offsets = ReplayManager.getVersionOffsets("Custom");
+      RSCFG.Items["CustomOffsets"]["ReplayLengthOffset"] = offsets.ReplayLengthOffset;
+      RSCFG.Items["CustomOffsets"]["TempReplayPathOffset"] = offsets.TempReplayPathOffset;
+      RSCFG.Items["CustomOffsets"]["ReplayPositionOffset"] = offsets.ReplayPositionOffset;
+      RSCFG.Items["CustomOffsets"]["ReplaySpeedOffset"] = offsets.ReplaySpeedOffset;
+      RSCFG.Items["CustomOffsets"]["ReplaySpeedDividerOffset"] = offsets.ReplaySpeedDividerOffset;
+      RSCFG.Items["CustomOffsets"]["PauseOffset"] = offsets.PauseOffset;
+      RSCFG.Items["CustomOffsets"]["StatusCodeOffset"] = offsets.StatusCodeOffset;
+       
       this.OnAppClose();
     }
 
@@ -1275,13 +1351,17 @@ namespace ReplaySeeker
 
     private void rescanButton_Click(object sender, EventArgs e)
     {
-        //this.isLegacyCB.Visible = false;
+        this.versionCBox.Enabled = false;
         ReplayManager.isScanFailed = false;
         this.rescanButton.Visible = false;
         this.scanProgressBar.Visible = true;
         this.statusLabel.Text = "Initiating rescan...";
     }
 
-    
+    private void versionCBox_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        this.updateVersion();
+    }
+
   }
 }
