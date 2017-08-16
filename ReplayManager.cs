@@ -13,20 +13,51 @@ namespace ReplaySeeker
 {
     public class ReplayManager : IReplayManager
     {
-        public static readonly int TempReplayPathOffset = 4076; // 3484;
-        public static readonly int ReplayLengthOffset = 2708; //2900;
-        public static readonly int ReplayPositionOffset = 8048; // 7456;
-        public static readonly int ReplaySpeedOffset = 9652;//9060;
-        public static readonly int ReplaySpeedDividerOffset = 9656; //9064;
-        public static readonly int PauseOffset = 9660; //9068;
-        public static readonly int StatusCodeOffset = 9608;//9016;
+        public static int VersionOffset = 0;
+        public static int VersionOffsetOther = 0;
+        public static readonly int TempReplayPathOffset = 4076; // 3484; (diff 592)
+        public static readonly int ReplayLengthOffset = 2708; //2900; (diff -192) // upd: 2308 in 1.26a, so diff is: 400
+        public static readonly int ReplayPositionOffset = 8048; // 7456; (diff 592)
+        public static readonly int ReplaySpeedOffset = 9652; //9060; (diff: 592)
+        public static readonly int ReplaySpeedDividerOffset = 9656; //9064; (diff: 592)
+        public static readonly int PauseOffset = 9660; //9068; (diff: 592); //
+        public static readonly int StatusCodeOffset = 9608;//9016; (diff: 592) // @todo 9024 for 1.27a (diff: 584)
         public static readonly int STATUS_NONE = 1313820229;
         public static readonly int STATUS_LOOP = 1280266064;
-        public static readonly int TurboModeLocation = 1873326436; // did not find yet.
+        public static readonly int TurboModeLocation = 1873326436; // did not find yet. Works only for legacy atm;
         public static int ReplayRestartWaitTime = 1000;
+
+        public static bool isScanning = false;
+        public static ReplayManager manager;
+
         private ProcessMemoryReader pReader;
-        private int memoryBlockLocation;
+        public static int memoryBlockLocation { get; private set; }
         private int lastPosition;
+        public static bool isLegacy
+        {
+            set
+            {
+                if (value == true)
+                {
+                    ReplayManager.VersionOffset = -592;
+                    ReplayManager.VersionOffsetOther = -400;
+                }
+                else
+                {
+                    ReplayManager.VersionOffset = 0;
+                    ReplayManager.VersionOffsetOther = 0;
+                }
+            }
+        }
+
+        public static bool isScanFailed;
+        public static bool IsEnabled
+        {
+            get
+            {
+                return (ReplayManager.memoryBlockLocation != 0);
+            }
+        }
 
         public IProcessMemory Memory
         {
@@ -40,11 +71,11 @@ namespace ReplaySeeker
         {
             get
             {
-                return this.pReader.ReadInt32(this.memoryBlockLocation + ReplayManager.ReplaySpeedOffset);
+                return this.pReader.ReadInt32(ReplayManager.memoryBlockLocation + ReplayManager.VersionOffset + ReplayManager.ReplaySpeedOffset);
             }
             set
             {
-                this.pReader.WriteInt32(this.memoryBlockLocation + ReplayManager.ReplaySpeedOffset, value);
+                this.pReader.WriteInt32(ReplayManager.memoryBlockLocation + ReplayManager.VersionOffset + ReplayManager.ReplaySpeedOffset, value);
             }
         }
 
@@ -52,11 +83,11 @@ namespace ReplaySeeker
         {
             get
             {
-                return this.pReader.ReadInt32(this.memoryBlockLocation + ReplayManager.ReplaySpeedDividerOffset);
+                return this.pReader.ReadInt32(ReplayManager.memoryBlockLocation + ReplayManager.VersionOffset + ReplayManager.ReplaySpeedDividerOffset);
             }
             set
             {
-                this.pReader.WriteInt32(this.memoryBlockLocation + ReplayManager.ReplaySpeedDividerOffset, value);
+                this.pReader.WriteInt32(ReplayManager.memoryBlockLocation + ReplayManager.VersionOffset + ReplayManager.ReplaySpeedDividerOffset, value);
             }
         }
 
@@ -64,7 +95,8 @@ namespace ReplaySeeker
         {
             get
             {
-                return this.pReader.ReadInt32(this.memoryBlockLocation + ReplayManager.ReplayPositionOffset);
+
+                return this.pReader.ReadInt32(ReplayManager.memoryBlockLocation + ReplayManager.VersionOffset + ReplayManager.ReplayPositionOffset);
             }
         }
 
@@ -89,7 +121,7 @@ namespace ReplaySeeker
         {
             get
             {
-                return this.pReader.ReadInt32(this.memoryBlockLocation + ReplayManager.ReplayLengthOffset);
+                return this.pReader.ReadInt32(ReplayManager.memoryBlockLocation + ReplayManager.VersionOffsetOther + ReplayManager.ReplayLengthOffset);
             }
         }
 
@@ -97,7 +129,7 @@ namespace ReplaySeeker
         {
             get
             {
-                return this.pReader.ReadInt32(this.memoryBlockLocation + ReplayManager.StatusCodeOffset) == ReplayManager.STATUS_NONE;
+                return this.pReader.ReadInt32(ReplayManager.memoryBlockLocation + ReplayManager.VersionOffset + ReplayManager.StatusCodeOffset) == ReplayManager.STATUS_NONE;
             }
         }
 
@@ -113,11 +145,11 @@ namespace ReplaySeeker
         {
             get
             {
-                return this.pReader.ReadInt32(this.memoryBlockLocation + ReplayManager.PauseOffset) == 1;
+                return this.pReader.ReadInt32(ReplayManager.memoryBlockLocation + ReplayManager.VersionOffset + ReplayManager.PauseOffset) == 1;
             }
             set
             {
-                this.pReader.WriteInt32(this.memoryBlockLocation + ReplayManager.PauseOffset, value ? 1 : 0);
+                this.pReader.WriteInt32(ReplayManager.memoryBlockLocation + ReplayManager.VersionOffset + ReplayManager.PauseOffset, value ? 1 : 0);
             }
         }
 
@@ -156,30 +188,61 @@ namespace ReplaySeeker
         public ReplayManager(ProcessMemoryReader pReader, int memoryBlockLocation)
         {
             this.pReader = pReader;
-            this.memoryBlockLocation = memoryBlockLocation;
+            ReplayManager.memoryBlockLocation = memoryBlockLocation;
         }
 
-        public static ReplayManager FromProcess(Process process)
+        public static void InitiateScan(Process process, ProcessMemoryReaderProgress progressReport)
         {
+            if (ReplayManager.isScanning)
+                return;
+            new Thread(new ParameterizedThreadStart(ReplayManager.Scanner)).Start((object)new object[2]
+              {
+                (object) process,
+                (object) progressReport
+              });
+        }
+
+        public static void Scanner(object obj)
+        {
+            if (ReplayManager.isScanning)
+                return;
+            ReplayManager.isScanning = true;
+            ReplayManager.isScanFailed = false;
             ProcessMemoryReader pReader = new ProcessMemoryReader();
+            Process process = (Process) ((object[]) obj)[0];
+            ProcessMemoryReaderProgress memoryScanProgress = (ProcessMemoryReaderProgress) ((object[]) obj)[1];
+
             pReader.ReadProcess = process;
             pReader.OpenProcess();
             bool flag = false;
             int memoryBlockLocation = 65536;
             while (memoryBlockLocation < 2147418112)
             {
-                if (pReader.ReadProcessInt32(memoryBlockLocation + ReplayManager.StatusCodeOffset) == ReplayManager.STATUS_LOOP)
+                if (memoryBlockLocation % 3145728 == 0 && memoryScanProgress != null)
                 {
-                    flag = (int)pReader.ReadProcessByte(memoryBlockLocation + ReplayManager.TempReplayPathOffset) == 0;
+                    memoryScanProgress((float)memoryBlockLocation / 2147418112);
+                }
+                if (pReader.ReadProcessInt32(memoryBlockLocation + ReplayManager.VersionOffset + ReplayManager.StatusCodeOffset) == ReplayManager.STATUS_LOOP)
+                {
+                    flag = (int)pReader.ReadProcessByte(memoryBlockLocation + ReplayManager.VersionOffset + ReplayManager.TempReplayPathOffset) == 0;
                     break;
                 }
                 memoryBlockLocation += 65536;
             }
             pReader.CloseHandle();
-            if (!flag)
-                return (ReplayManager)null;
-           
-            return new ReplayManager(pReader, memoryBlockLocation);
+                
+            if (flag)
+            {
+                ReplayManager.manager = new ReplayManager(pReader, memoryBlockLocation);
+            } else {
+                if (ReplayManager.manager != null)
+                {
+                    ReplayManager.manager.Dispose();
+                    ReplayManager.manager = null;
+                }
+                ReplayManager.isScanFailed = true;
+            }
+            ReplayManager.isScanning = false;    
         }
 
         public void Activate(bool flag)
@@ -207,9 +270,9 @@ namespace ReplaySeeker
             double num2 = 23.0 / 24.0;
             */
             // i`ve tried some coordinates, did not make it working yet
-            // will investigate tomorrow
-            double num1 = this.pReader.CalculateAbsoluteCoordinateX(122);
-            double num2 = this.pReader.CalculateAbsoluteCoordinateY(39);
+            // will investigate someday :D
+            double num1 = this.pReader.CalculateAbsoluteCoordinateX(365);
+            double num2 = this.pReader.CalculateAbsoluteCoordinateY(23);
             /*if (Screen.PrimaryScreen.Bounds != normalPosition)
             {
               num1 = ((double) normalPosition.X + num1 * (double) normalPosition.Width) / (double) Screen.PrimaryScreen.Bounds.Width;
@@ -232,7 +295,7 @@ namespace ReplaySeeker
             if (minimized)
                 this.Minimized = true;
             Application.OpenForms[0].Activate();
-            //Cursor.Position = position;
+            Cursor.Position = position;
         }
 
         public void SetSpeed(int newSpeed)
@@ -265,7 +328,7 @@ namespace ReplaySeeker
 
         public void Dispose()
         {
-            this.memoryBlockLocation = 0;
+            ReplayManager.memoryBlockLocation = 0;
             this.pReader.ReadProcess = (Process)null;
             this.pReader = (ProcessMemoryReader)null;
         }

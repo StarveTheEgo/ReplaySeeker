@@ -1,7 +1,7 @@
 ﻿// Decompiled with JetBrains decompiler
 // Type: ReplaySeeker.MainForm
 // Assembly: ReplaySeeker, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-
+using ProcessMemoryReaderLib;
 using ReplaySeeker.Core.Resources;
 using ReplaySeeker.Plugins;
 using System;
@@ -17,8 +17,6 @@ using System.Threading;
 using System.Windows.Forms;
 
 
-
-using System;
 
 namespace ReplaySeeker
 {
@@ -70,8 +68,10 @@ namespace ReplaySeeker
     private bool isHooked;
     private bool isSpeedChanging;
     private Regex rgWar3processName;
-    private ReplayManager replay;
     private Thread syncThread;
+    private ProgressBar scanProgressBar;
+    private Button rescanButton;
+    private CheckBox isLegacyCB;
     private int playbackPosition;
 
     public Form AppForm
@@ -132,7 +132,8 @@ namespace ReplaySeeker
       this.menuStrip.Renderer = (ToolStripRenderer) UIRenderers.NoBorderRenderer;
       this.UnHook();
       this.doneSoundCmbB.SelectedIndex = RSCFG.Items["Options"].GetIntValue("DoneSound", 1);
-      this.turboCB.Checked = false;// RSCFG.Items["Options"].GetIntValue("TurboMode", 0) == 1;
+      this.isLegacyCB.Checked = RSCFG.Items["Options"].GetIntValue("LegacyMode", 0) == 1;
+      this.turboCB.Checked = this.isLegacyCB.Checked && RSCFG.Items["Options"].GetIntValue("TurboMode", 0) == 1;
       this.rgWar3processName = new Regex(RSCFG.Items["Options"].GetStringValue("ProcessName", "war3").Replace("*", ".*"), RegexOptions.IgnoreCase);
       this.LoadPlugins();
       this.war3detectTimer.Start();
@@ -147,441 +148,594 @@ namespace ReplaySeeker
 
     private void InitializeComponent()
     {
-      this.components = (IContainer) new Container();
-      this.rLetterB = new Button();
-      this.label1 = new Label();
-      this.label2 = new Label();
-      this.panel1 = new Panel();
-      this.seekerPB = new PictureBox();
-      this.label9 = new Label();
-      this.speedTrackBar = new TrackBar();
-      this.currentPositionTrackBar = new TrackBar();
-      this.label3 = new Label();
-      this.replaySpeedLabel = new Label();
-      this.groupBox1 = new GroupBox();
-      this.pluginsLV = new ListView();
-      this.pluginNameColumn = new ColumnHeader();
-      this.pluginDescriptionColumn = new ColumnHeader();
-      this.syncSolutionLabel = new Label();
-      this.label8 = new Label();
-      this.playDoneSoundB = new Button();
-      this.statusLabel = new Label();
-      this.label6 = new Label();
-      this.label7 = new Label();
-      this.doneSoundCmbB = new ComboBox();
-      this.label4 = new Label();
-      this.label5 = new Label();
-      this.desiredPositionTrackBar = new TrackBar();
-      this.desiredTimeTextBox = new TextBox();
-      this.synchronizeB = new Button();
-      this.war3detectTimer = new System.Windows.Forms.Timer(this.components);
-      this.replayUpdateTimer = new System.Windows.Forms.Timer(this.components);
-      this.replayLengthLabel = new Label();
-      this.replayStartTimeLabel = new Label();
-      this.desiredStartTimeLabel = new Label();
-      this.desiredLengthLabel = new Label();
-      this.currentTimeTextBox = new TextBox();
-      this.syncFlashTimer = new System.Windows.Forms.Timer(this.components);
-      this.menuStrip = new MenuStrip();
-      this.aboutToolStripMenuItem = new ToolStripMenuItem();
-      this.helpToolStripMenuItem = new ToolStripMenuItem();
-      this.playbackSpeedTextBox = new TextBox();
-      this.label10 = new Label();
-      this.turboCB = new CheckBox();
-      this.panel1.SuspendLayout();
-      ((ISupportInitialize) this.seekerPB).BeginInit();
-      this.speedTrackBar.BeginInit();
-      this.currentPositionTrackBar.BeginInit();
-      this.groupBox1.SuspendLayout();
-      this.desiredPositionTrackBar.BeginInit();
-      this.menuStrip.SuspendLayout();
-      this.SuspendLayout();
-      this.rLetterB.BackColor = Color.Black;
-      this.rLetterB.FlatAppearance.BorderColor = Color.Red;
-      this.rLetterB.FlatAppearance.BorderSize = 4;
-      this.rLetterB.FlatAppearance.MouseDownBackColor = Color.Black;
-      this.rLetterB.FlatAppearance.MouseOverBackColor = Color.Black;
-      this.rLetterB.FlatStyle = FlatStyle.Flat;
-      this.rLetterB.Font = new Font("Verdana", 38.25f, FontStyle.Bold, GraphicsUnit.Point, (byte) 204);
-      this.rLetterB.ForeColor = Color.Red;
-      this.rLetterB.Location = new Point(1, 0);
-      this.rLetterB.Name = "rLetterB";
-      this.rLetterB.Size = new Size(79, 78);
-      this.rLetterB.TabIndex = 0;
-      this.rLetterB.Text = "R";
-      this.rLetterB.UseVisualStyleBackColor = false;
-      this.label1.AutoSize = true;
-      this.label1.Font = new Font("Verdana", 38.25f, FontStyle.Bold);
-      this.label1.ForeColor = Color.Red;
-      this.label1.Location = new Point(72, 6);
-      this.label1.Name = "label1";
-      this.label1.Size = new Size(181, 61);
-      this.label1.TabIndex = 1;
-      this.label1.Text = "eplay";
-      this.label2.AutoSize = true;
-      this.label2.Font = new Font("Microsoft Sans Serif", 18f, FontStyle.Bold | FontStyle.Italic, GraphicsUnit.Point, (byte) 204);
-      this.label2.ForeColor = Color.White;
-      this.label2.Location = new Point(160, 67);
-      this.label2.Name = "label2";
-      this.label2.Size = new Size(93, 29);
-      this.label2.TabIndex = 2;
-      this.label2.Text = "seeker";
-      this.panel1.BackColor = Color.Black;
-      this.panel1.Controls.Add((Control) this.seekerPB);
-      this.panel1.Controls.Add((Control) this.label9);
-      this.panel1.Controls.Add((Control) this.rLetterB);
-      this.panel1.Controls.Add((Control) this.label2);
-      this.panel1.Controls.Add((Control) this.label1);
-      this.panel1.Location = new Point(12, 12);
-      this.panel1.Name = "panel1";
-      this.panel1.Size = new Size(354, 102);
-      this.panel1.TabIndex = 4;
-      this.seekerPB.Image = (Image) ReplaySeeker.Properties.Resources.DISBTNThirst;
-      this.seekerPB.InitialImage = (Image) ReplaySeeker.Properties.Resources.DISBTNThirst;
-      this.seekerPB.Location = new Point(259, 0);
-      this.seekerPB.Name = "seekerPB";
-      this.seekerPB.Size = new Size(96, 96);
-      this.seekerPB.SizeMode = PictureBoxSizeMode.Zoom;
-      this.seekerPB.TabIndex = 3;
-      this.seekerPB.TabStop = false;
-      this.label9.AutoSize = true;
-      this.label9.Font = new Font("Verdana", 8.25f, FontStyle.Bold);
-      this.label9.ForeColor = Color.White;
-      this.label9.Location = new Point(0, 79);
-      this.label9.Name = "label9";
-      this.label9.Size = new Size(91, 13);
-      this.label9.TabIndex = 20;
-      this.label9.Text = "Version: 2.0";
-      this.speedTrackBar.BackColor = Color.Black;
-      this.speedTrackBar.Location = new Point(12, 152);
-      this.speedTrackBar.Maximum = 31;
-      this.speedTrackBar.Minimum = -31;
-      this.speedTrackBar.Name = "speedTrackBar";
-      this.speedTrackBar.Size = new Size(353, 45);
-      this.speedTrackBar.TabIndex = 5;
-      this.speedTrackBar.TickStyle = TickStyle.TopLeft;
-      this.speedTrackBar.MouseDown += new MouseEventHandler(this.speedTrackBar_MouseDown);
-      this.speedTrackBar.ValueChanged += new EventHandler(this.speedTrackBar_ValueChanged);
-      this.speedTrackBar.MouseUp += new MouseEventHandler(this.speedTrackBar_MouseUp);
-      this.currentPositionTrackBar.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-      this.currentPositionTrackBar.BackColor = Color.Black;
-      this.currentPositionTrackBar.Enabled = false;
-      this.currentPositionTrackBar.Location = new Point(13, 229);
-      this.currentPositionTrackBar.Name = "currentPositionTrackBar";
-      this.currentPositionTrackBar.Size = new Size(650, 45);
-      this.currentPositionTrackBar.TabIndex = 6;
-      this.currentPositionTrackBar.TickStyle = TickStyle.None;
-      this.currentPositionTrackBar.ValueChanged += new EventHandler(this.currentPositionTrackBar_ValueChanged);
-      this.label3.AutoSize = true;
-      this.label3.Font = new Font("Verdana", 8.25f, FontStyle.Bold, GraphicsUnit.Point, (byte) 204);
-      this.label3.ForeColor = Color.LightSkyBlue;
-      this.label3.Location = new Point(129, 181);
-      this.label3.Name = "label3";
-      this.label3.Size = new Size(103, 13);
-      this.label3.TabIndex = 7;
-      this.label3.Text = "Replay Speed: ";
-      this.replaySpeedLabel.AutoSize = true;
-      this.replaySpeedLabel.Font = new Font("Verdana", 8.25f, FontStyle.Bold);
-      this.replaySpeedLabel.ForeColor = Color.LightSkyBlue;
-      this.replaySpeedLabel.Location = new Point(228, 181);
-      this.replaySpeedLabel.Name = "replaySpeedLabel";
-      this.replaySpeedLabel.Size = new Size(23, 13);
-      this.replaySpeedLabel.TabIndex = 8;
-      this.replaySpeedLabel.Text = "1x";
-      this.groupBox1.Controls.Add((Control) this.pluginsLV);
-      this.groupBox1.Controls.Add((Control) this.syncSolutionLabel);
-      this.groupBox1.Controls.Add((Control) this.label8);
-      this.groupBox1.Controls.Add((Control) this.playDoneSoundB);
-      this.groupBox1.Controls.Add((Control) this.statusLabel);
-      this.groupBox1.Controls.Add((Control) this.label6);
-      this.groupBox1.Controls.Add((Control) this.label7);
-      this.groupBox1.Controls.Add((Control) this.doneSoundCmbB);
-      this.groupBox1.ForeColor = Color.White;
-      this.groupBox1.Location = new Point(383, 7);
-      this.groupBox1.Name = "groupBox1";
-      this.groupBox1.Size = new Size(280, 197);
-      this.groupBox1.TabIndex = 9;
-      this.groupBox1.TabStop = false;
-      this.pluginsLV.BackColor = Color.DimGray;
-      this.pluginsLV.Columns.AddRange(new ColumnHeader[2]
-      {
-        this.pluginNameColumn,
-        this.pluginDescriptionColumn
-      });
-      this.pluginsLV.ForeColor = Color.White;
-      this.pluginsLV.FullRowSelect = true;
-      this.pluginsLV.HeaderStyle = ColumnHeaderStyle.Nonclickable;
-      this.pluginsLV.Location = new Point(6, 82);
-      this.pluginsLV.Name = "pluginsLV";
-      this.pluginsLV.Size = new Size(268, 109);
-      this.pluginsLV.TabIndex = 21;
-      this.pluginsLV.UseCompatibleStateImageBehavior = false;
-      this.pluginsLV.View = View.Details;
-      this.pluginsLV.ItemActivate += new EventHandler(this.pluginsLV_ItemActivate);
-      this.pluginNameColumn.Text = "Plugin";
-      this.pluginNameColumn.Width = 98;
-      this.pluginDescriptionColumn.Text = "Description";
-      this.pluginDescriptionColumn.Width = 162;
-      this.syncSolutionLabel.Font = new Font("Microsoft Sans Serif", 8.25f, FontStyle.Bold);
-      this.syncSolutionLabel.ForeColor = Color.Red;
-      this.syncSolutionLabel.Location = new Point(94, 37);
-      this.syncSolutionLabel.Name = "syncSolutionLabel";
-      this.syncSolutionLabel.Size = new Size(180, 13);
-      this.syncSolutionLabel.TabIndex = 20;
-      this.label8.AutoSize = true;
-      this.label8.Font = new Font("Microsoft Sans Serif", 8.25f, FontStyle.Bold, GraphicsUnit.Point, (byte) 204);
-      this.label8.ForeColor = Color.LightGray;
-      this.label8.Location = new Point(6, 37);
-      this.label8.Name = "label8";
-      this.label8.Size = new Size(91, 13);
-      this.label8.TabIndex = 6;
-      this.label8.Text = "Sync solution: ";
-      this.playDoneSoundB.BackColor = Color.Black;
-      this.playDoneSoundB.BackgroundImageLayout = ImageLayout.Zoom;
-      this.playDoneSoundB.FlatStyle = FlatStyle.Popup;
-      this.playDoneSoundB.Image = (Image) ReplaySeeker.Properties.Resources.Control_Sound;
-      this.playDoneSoundB.Location = new Point(256, 55);
-      this.playDoneSoundB.Name = "playDoneSoundB";
-      this.playDoneSoundB.Size = new Size(22, 23);
-      this.playDoneSoundB.TabIndex = 5;
-      this.playDoneSoundB.UseVisualStyleBackColor = false;
-      this.playDoneSoundB.Click += new EventHandler(this.playDoneSoundB_Click);
-      this.statusLabel.AutoSize = true;
-      this.statusLabel.Font = new Font("Microsoft Sans Serif", 8.25f, FontStyle.Bold);
-      this.statusLabel.ForeColor = Color.Red;
-      this.statusLabel.Location = new Point(54, 16);
-      this.statusLabel.Name = "statusLabel";
-      this.statusLabel.Size = new Size(110, 13);
-      this.statusLabel.TabIndex = 4;
-      this.statusLabel.Text = "I sense no replays";
-      this.label6.AutoSize = true;
-      this.label6.Font = new Font("Microsoft Sans Serif", 8.25f, FontStyle.Bold, GraphicsUnit.Point, (byte) 204);
-      this.label6.ForeColor = Color.LightGray;
-      this.label6.Location = new Point(6, 16);
-      this.label6.Name = "label6";
-      this.label6.Size = new Size(51, 13);
-      this.label6.TabIndex = 3;
-      this.label6.Text = "Status: ";
-      this.label7.AutoSize = true;
-      this.label7.Font = new Font("Microsoft Sans Serif", 8.25f, FontStyle.Bold, GraphicsUnit.Point, (byte) 204);
-      this.label7.ForeColor = Color.LightGray;
-      this.label7.Location = new Point(6, 59);
-      this.label7.Name = "label7";
-      this.label7.Size = new Size(99, 13);
-      this.label7.TabIndex = 2;
-      this.label7.Text = "Sound on sync: ";
-      this.doneSoundCmbB.DropDownStyle = ComboBoxStyle.DropDownList;
-      this.doneSoundCmbB.FormattingEnabled = true;
-      this.doneSoundCmbB.Items.AddRange(new object[4]
-      {
-        (object) "None",
-        (object) "It is Done",
-        (object) "Windows Notify",
-        (object) "Windows Tada"
-      });
-      this.doneSoundCmbB.Location = new Point(107, 56);
-      this.doneSoundCmbB.Name = "doneSoundCmbB";
-      this.doneSoundCmbB.Size = new Size(147, 21);
-      this.doneSoundCmbB.TabIndex = 0;
-      this.doneSoundCmbB.SelectedIndexChanged += new EventHandler(this.doneSoundCmbB_SelectedIndexChanged);
-      this.label4.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-      this.label4.AutoSize = true;
-      this.label4.Font = new Font("Verdana", 8.25f, FontStyle.Bold, GraphicsUnit.Point, (byte) 204);
-      this.label4.ForeColor = Color.LightSkyBlue;
-      this.label4.Location = new Point(202, 252);
-      this.label4.Name = "label4";
-      this.label4.Size = new Size(164, 13);
-      this.label4.TabIndex = 10;
-      this.label4.Text = "Current Replay Position:";
-      this.label5.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-      this.label5.AutoSize = true;
-      this.label5.Font = new Font("Verdana", 8.25f, FontStyle.Bold, GraphicsUnit.Point, (byte) 204);
-      this.label5.ForeColor = Color.LightSkyBlue;
-      this.label5.Location = new Point(202, 303);
-      this.label5.Name = "label5";
-      this.label5.Size = new Size(165, 13);
-      this.label5.TabIndex = 12;
-      this.label5.Text = "Desired Replay Position:";
-      this.desiredPositionTrackBar.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-      this.desiredPositionTrackBar.LargeChange = 60000;
-      this.desiredPositionTrackBar.Location = new Point(13, 280);
-      this.desiredPositionTrackBar.Name = "desiredPositionTrackBar";
-      this.desiredPositionTrackBar.Size = new Size(650, 45);
-      this.desiredPositionTrackBar.TabIndex = 11;
-      this.desiredPositionTrackBar.TickStyle = TickStyle.None;
-      this.desiredPositionTrackBar.ValueChanged += new EventHandler(this.desiredPositionTrackBar_ValueChanged);
-      this.desiredTimeTextBox.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-      this.desiredTimeTextBox.BackColor = Color.Black;
-      this.desiredTimeTextBox.Font = new Font("Verdana", 8.25f, FontStyle.Bold);
-      this.desiredTimeTextBox.ForeColor = Color.Gainsboro;
-      this.desiredTimeTextBox.Location = new Point(370, 300);
-      this.desiredTimeTextBox.Name = "desiredTimeTextBox";
-      this.desiredTimeTextBox.Size = new Size(100, 21);
-      this.desiredTimeTextBox.TabIndex = 13;
-      this.desiredTimeTextBox.Text = "59:56";
-      this.desiredTimeTextBox.KeyPress += new KeyPressEventHandler(this.desiredTimeTextBox_KeyPress);
-      this.desiredTimeTextBox.TextChanged += new EventHandler(this.desiredTimeTextBox_TextChanged);
-      this.synchronizeB.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-      this.synchronizeB.Font = new Font("Microsoft Sans Serif", 9f, FontStyle.Bold, GraphicsUnit.Point, (byte) 204);
-      this.synchronizeB.ForeColor = Color.Red;
-      this.synchronizeB.Location = new Point(203, 345);
-      this.synchronizeB.Name = "synchronizeB";
-      this.synchronizeB.Size = new Size(270, 23);
-      this.synchronizeB.TabIndex = 14;
-      this.synchronizeB.Text = "Synchronize!";
-      this.synchronizeB.UseVisualStyleBackColor = true;
-      this.synchronizeB.Click += new EventHandler(this.synchronizeB_Click);
-      this.war3detectTimer.Interval = 2000;
-      this.war3detectTimer.Tick += new EventHandler(this.war3detectTimer_Tick);
-      this.replayUpdateTimer.Interval = 250;
-      this.replayUpdateTimer.Tick += new EventHandler(this.replayUpdateTimer_Tick);
-      this.replayLengthLabel.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-      this.replayLengthLabel.Font = new Font("Verdana", 8.25f, FontStyle.Bold, GraphicsUnit.Point, (byte) 204);
-      this.replayLengthLabel.ForeColor = Color.LightSkyBlue;
-      this.replayLengthLabel.Location = new Point(597, 252);
-      this.replayLengthLabel.Name = "replayLengthLabel";
-      this.replayLengthLabel.Size = new Size(72, 13);
-      this.replayLengthLabel.TabIndex = 15;
-      this.replayLengthLabel.Text = "1:30:00";
-      this.replayLengthLabel.TextAlign = ContentAlignment.TopRight;
-      this.replayStartTimeLabel.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-      this.replayStartTimeLabel.Font = new Font("Verdana", 8.25f, FontStyle.Bold, GraphicsUnit.Point, (byte) 204);
-      this.replayStartTimeLabel.ForeColor = Color.LightSkyBlue;
-      this.replayStartTimeLabel.Location = new Point(-9, 252);
-      this.replayStartTimeLabel.Name = "replayStartTimeLabel";
-      this.replayStartTimeLabel.Size = new Size(72, 13);
-      this.replayStartTimeLabel.TabIndex = 16;
-      this.replayStartTimeLabel.Text = "00:00";
-      this.replayStartTimeLabel.TextAlign = ContentAlignment.TopCenter;
-      this.desiredStartTimeLabel.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-      this.desiredStartTimeLabel.Font = new Font("Verdana", 8.25f, FontStyle.Bold, GraphicsUnit.Point, (byte) 204);
-      this.desiredStartTimeLabel.ForeColor = Color.LightSkyBlue;
-      this.desiredStartTimeLabel.Location = new Point(-9, 307);
-      this.desiredStartTimeLabel.Name = "desiredStartTimeLabel";
-      this.desiredStartTimeLabel.Size = new Size(72, 13);
-      this.desiredStartTimeLabel.TabIndex = 17;
-      this.desiredStartTimeLabel.Text = "00:00";
-      this.desiredStartTimeLabel.TextAlign = ContentAlignment.TopCenter;
-      this.desiredLengthLabel.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-      this.desiredLengthLabel.Font = new Font("Verdana", 8.25f, FontStyle.Bold, GraphicsUnit.Point, (byte) 204);
-      this.desiredLengthLabel.ForeColor = Color.LightSkyBlue;
-      this.desiredLengthLabel.Location = new Point(597, 307);
-      this.desiredLengthLabel.Name = "desiredLengthLabel";
-      this.desiredLengthLabel.Size = new Size(72, 13);
-      this.desiredLengthLabel.TabIndex = 18;
-      this.desiredLengthLabel.Text = "1:30:00";
-      this.desiredLengthLabel.TextAlign = ContentAlignment.TopRight;
-      this.currentTimeTextBox.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-      this.currentTimeTextBox.BackColor = Color.Black;
-      this.currentTimeTextBox.BorderStyle = BorderStyle.None;
-      this.currentTimeTextBox.Font = new Font("Verdana", 8.25f, FontStyle.Bold);
-      this.currentTimeTextBox.ForeColor = Color.Gainsboro;
-      this.currentTimeTextBox.Location = new Point(373, 252);
-      this.currentTimeTextBox.Name = "currentTimeTextBox";
-      this.currentTimeTextBox.ReadOnly = true;
-      this.currentTimeTextBox.Size = new Size(100, 14);
-      this.currentTimeTextBox.TabIndex = 19;
-      this.currentTimeTextBox.Text = "49:07";
-      this.syncFlashTimer.Interval = 500;
-      this.syncFlashTimer.Tick += new EventHandler(this.syncFlashTimer_Tick);
-      this.menuStrip.AutoSize = false;
-      this.menuStrip.BackColor = Color.Black;
-      this.menuStrip.Dock = DockStyle.None;
-      this.menuStrip.Items.AddRange(new ToolStripItem[2]
-      {
-        (ToolStripItem) this.aboutToolStripMenuItem,
-        (ToolStripItem) this.helpToolStripMenuItem
-      });
-      this.menuStrip.Location = new Point(12, 117);
-      this.menuStrip.Name = "menuStrip";
-      this.menuStrip.RenderMode = ToolStripRenderMode.System;
-      this.menuStrip.Size = new Size(353, 24);
-      this.menuStrip.TabIndex = 20;
-      this.menuStrip.Text = "menuStrip1";
-      this.aboutToolStripMenuItem.Alignment = ToolStripItemAlignment.Right;
-      this.aboutToolStripMenuItem.ForeColor = Color.White;
-      this.aboutToolStripMenuItem.Name = "aboutToolStripMenuItem";
-      this.aboutToolStripMenuItem.Size = new Size(48, 20);
-      this.aboutToolStripMenuItem.Text = "About";
-      this.aboutToolStripMenuItem.Click += new EventHandler(this.aboutToolStripMenuItem_Click);
-      this.helpToolStripMenuItem.Alignment = ToolStripItemAlignment.Right;
-      this.helpToolStripMenuItem.ForeColor = Color.White;
-      this.helpToolStripMenuItem.Name = "helpToolStripMenuItem";
-      this.helpToolStripMenuItem.Size = new Size(40, 20);
-      this.helpToolStripMenuItem.Text = "Help";
-      this.helpToolStripMenuItem.Click += new EventHandler(this.helpToolStripMenuItem_Click);
-      this.playbackSpeedTextBox.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-      this.playbackSpeedTextBox.BackColor = Color.Black;
-      this.playbackSpeedTextBox.BorderStyle = BorderStyle.None;
-      this.playbackSpeedTextBox.Font = new Font("Verdana", 8.25f, FontStyle.Bold);
-      this.playbackSpeedTextBox.ForeColor = Color.Khaki;
-      this.playbackSpeedTextBox.Location = new Point(551, 213);
-      this.playbackSpeedTextBox.Name = "playbackSpeedTextBox";
-      this.playbackSpeedTextBox.ReadOnly = true;
-      this.playbackSpeedTextBox.Size = new Size(39, 14);
-      this.playbackSpeedTextBox.TabIndex = 22;
-      this.playbackSpeedTextBox.Text = "1.00";
-      this.label10.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-      this.label10.AutoSize = true;
-      this.label10.Font = new Font("Verdana", 8.25f, FontStyle.Bold, GraphicsUnit.Point, (byte) 204);
-      this.label10.ForeColor = Color.Khaki;
-      this.label10.Location = new Point(386, 213);
-      this.label10.Name = "label10";
-      this.label10.Size = new Size(159, 13);
-      this.label10.TabIndex = 21;
-      this.label10.Text = "Actual Playback Speed:";
-      this.turboCB.Font = new Font("Verdana", 8.25f, FontStyle.Bold, GraphicsUnit.Point, (byte) 204);
-      this.turboCB.ForeColor = Color.Red;
-      this.turboCB.Location = new Point(592, 209);
-      this.turboCB.Name = "turboCB";
-      this.turboCB.Size = new Size(65, 24);
-      this.turboCB.TabIndex = 23;
-      this.turboCB.Text = "Turbo";
-      this.turboCB.Enabled = false;
-      this.turboCB.UseVisualStyleBackColor = true;
-      this.AutoScaleDimensions = new SizeF(6f, 13f);
-      this.AutoScaleMode = AutoScaleMode.Font;
-      this.BackColor = Color.Black;
-      this.ClientSize = new Size(675, 378);
-      this.Controls.Add((Control) this.turboCB);
-      this.Controls.Add((Control) this.playbackSpeedTextBox);
-      this.Controls.Add((Control) this.label10);
-      this.Controls.Add((Control) this.replaySpeedLabel);
-      this.Controls.Add((Control) this.currentTimeTextBox);
-      this.Controls.Add((Control) this.label3);
-      this.Controls.Add((Control) this.desiredLengthLabel);
-      this.Controls.Add((Control) this.desiredStartTimeLabel);
-      this.Controls.Add((Control) this.speedTrackBar);
-      this.Controls.Add((Control) this.replayStartTimeLabel);
-      this.Controls.Add((Control) this.replayLengthLabel);
-      this.Controls.Add((Control) this.synchronizeB);
-      this.Controls.Add((Control) this.desiredTimeTextBox);
-      this.Controls.Add((Control) this.label5);
-      this.Controls.Add((Control) this.desiredPositionTrackBar);
-      this.Controls.Add((Control) this.label4);
-      this.Controls.Add((Control) this.groupBox1);
-      this.Controls.Add((Control) this.currentPositionTrackBar);
-      this.Controls.Add((Control) this.panel1);
-      this.Controls.Add((Control) this.menuStrip);
-      this.FormBorderStyle = FormBorderStyle.FixedSingle;
-      this.MainMenuStrip = this.menuStrip;
-      this.MaximizeBox = false;
-      this.Name = "MainForm";
-      this.StartPosition = FormStartPosition.CenterScreen;
-      this.Text = "Replay Seeker";
-      this.FormClosing += new FormClosingEventHandler(this.MainForm_FormClosing);
-      this.panel1.ResumeLayout(false);
-      this.panel1.PerformLayout();
-      ((ISupportInitialize) this.seekerPB).EndInit();
-      this.speedTrackBar.EndInit();
-      this.currentPositionTrackBar.EndInit();
-      this.groupBox1.ResumeLayout(false);
-      this.groupBox1.PerformLayout();
-      this.desiredPositionTrackBar.EndInit();
-      this.menuStrip.ResumeLayout(false);
-      this.menuStrip.PerformLayout();
-      this.ResumeLayout(false);
-      this.PerformLayout();
+        this.components = new System.ComponentModel.Container();
+        this.rLetterB = new System.Windows.Forms.Button();
+        this.label1 = new System.Windows.Forms.Label();
+        this.label2 = new System.Windows.Forms.Label();
+        this.panel1 = new System.Windows.Forms.Panel();
+        this.seekerPB = new System.Windows.Forms.PictureBox();
+        this.label9 = new System.Windows.Forms.Label();
+        this.speedTrackBar = new System.Windows.Forms.TrackBar();
+        this.currentPositionTrackBar = new System.Windows.Forms.TrackBar();
+        this.label3 = new System.Windows.Forms.Label();
+        this.replaySpeedLabel = new System.Windows.Forms.Label();
+        this.groupBox1 = new System.Windows.Forms.GroupBox();
+        this.rescanButton = new System.Windows.Forms.Button();
+        this.scanProgressBar = new System.Windows.Forms.ProgressBar();
+        this.pluginsLV = new System.Windows.Forms.ListView();
+        this.pluginNameColumn = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+        this.pluginDescriptionColumn = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+        this.syncSolutionLabel = new System.Windows.Forms.Label();
+        this.label8 = new System.Windows.Forms.Label();
+        this.playDoneSoundB = new System.Windows.Forms.Button();
+        this.statusLabel = new System.Windows.Forms.Label();
+        this.label6 = new System.Windows.Forms.Label();
+        this.label7 = new System.Windows.Forms.Label();
+        this.doneSoundCmbB = new System.Windows.Forms.ComboBox();
+        this.label4 = new System.Windows.Forms.Label();
+        this.label5 = new System.Windows.Forms.Label();
+        this.desiredPositionTrackBar = new System.Windows.Forms.TrackBar();
+        this.desiredTimeTextBox = new System.Windows.Forms.TextBox();
+        this.synchronizeB = new System.Windows.Forms.Button();
+        this.war3detectTimer = new System.Windows.Forms.Timer(this.components);
+        this.replayUpdateTimer = new System.Windows.Forms.Timer(this.components);
+        this.replayLengthLabel = new System.Windows.Forms.Label();
+        this.replayStartTimeLabel = new System.Windows.Forms.Label();
+        this.desiredStartTimeLabel = new System.Windows.Forms.Label();
+        this.desiredLengthLabel = new System.Windows.Forms.Label();
+        this.currentTimeTextBox = new System.Windows.Forms.TextBox();
+        this.syncFlashTimer = new System.Windows.Forms.Timer(this.components);
+        this.menuStrip = new System.Windows.Forms.MenuStrip();
+        this.aboutToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+        this.helpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+        this.playbackSpeedTextBox = new System.Windows.Forms.TextBox();
+        this.label10 = new System.Windows.Forms.Label();
+        this.turboCB = new System.Windows.Forms.CheckBox();
+        this.isLegacyCB = new System.Windows.Forms.CheckBox();
+        this.panel1.SuspendLayout();
+        ((System.ComponentModel.ISupportInitialize)(this.seekerPB)).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)(this.speedTrackBar)).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)(this.currentPositionTrackBar)).BeginInit();
+        this.groupBox1.SuspendLayout();
+        ((System.ComponentModel.ISupportInitialize)(this.desiredPositionTrackBar)).BeginInit();
+        this.menuStrip.SuspendLayout();
+        this.SuspendLayout();
+        // 
+        // rLetterB
+        // 
+        this.rLetterB.BackColor = System.Drawing.Color.Black;
+        this.rLetterB.FlatAppearance.BorderColor = System.Drawing.Color.Red;
+        this.rLetterB.FlatAppearance.BorderSize = 4;
+        this.rLetterB.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Black;
+        this.rLetterB.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Black;
+        this.rLetterB.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+        this.rLetterB.Font = new System.Drawing.Font("Verdana", 38.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+        this.rLetterB.ForeColor = System.Drawing.Color.Red;
+        this.rLetterB.Location = new System.Drawing.Point(1, 0);
+        this.rLetterB.Name = "rLetterB";
+        this.rLetterB.Size = new System.Drawing.Size(79, 78);
+        this.rLetterB.TabIndex = 0;
+        this.rLetterB.Text = "R";
+        this.rLetterB.UseVisualStyleBackColor = false;
+        // 
+        // label1
+        // 
+        this.label1.AutoSize = true;
+        this.label1.Font = new System.Drawing.Font("Verdana", 38.25F, System.Drawing.FontStyle.Bold);
+        this.label1.ForeColor = System.Drawing.Color.Red;
+        this.label1.Location = new System.Drawing.Point(72, 6);
+        this.label1.Name = "label1";
+        this.label1.Size = new System.Drawing.Size(181, 61);
+        this.label1.TabIndex = 1;
+        this.label1.Text = "eplay";
+        // 
+        // label2
+        // 
+        this.label2.AutoSize = true;
+        this.label2.Font = new System.Drawing.Font("Microsoft Sans Serif", 18F, ((System.Drawing.FontStyle)((System.Drawing.FontStyle.Bold | System.Drawing.FontStyle.Italic))), System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+        this.label2.ForeColor = System.Drawing.Color.White;
+        this.label2.Location = new System.Drawing.Point(160, 67);
+        this.label2.Name = "label2";
+        this.label2.Size = new System.Drawing.Size(93, 29);
+        this.label2.TabIndex = 2;
+        this.label2.Text = "seeker";
+        // 
+        // panel1
+        // 
+        this.panel1.BackColor = System.Drawing.Color.Black;
+        this.panel1.Controls.Add(this.seekerPB);
+        this.panel1.Controls.Add(this.label9);
+        this.panel1.Controls.Add(this.rLetterB);
+        this.panel1.Controls.Add(this.label2);
+        this.panel1.Controls.Add(this.label1);
+        this.panel1.Location = new System.Drawing.Point(12, 12);
+        this.panel1.Name = "panel1";
+        this.panel1.Size = new System.Drawing.Size(354, 102);
+        this.panel1.TabIndex = 4;
+        // 
+        // seekerPB
+        // 
+        this.seekerPB.Image = global::ReplaySeeker.Properties.Resources.DISBTNThirst;
+        this.seekerPB.InitialImage = global::ReplaySeeker.Properties.Resources.DISBTNThirst;
+        this.seekerPB.Location = new System.Drawing.Point(259, 0);
+        this.seekerPB.Name = "seekerPB";
+        this.seekerPB.Size = new System.Drawing.Size(96, 96);
+        this.seekerPB.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
+        this.seekerPB.TabIndex = 3;
+        this.seekerPB.TabStop = false;
+        // 
+        // label9
+        // 
+        this.label9.AutoSize = true;
+        this.label9.Font = new System.Drawing.Font("Verdana", 8.25F, System.Drawing.FontStyle.Bold);
+        this.label9.ForeColor = System.Drawing.Color.White;
+        this.label9.Location = new System.Drawing.Point(0, 79);
+        this.label9.Name = "label9";
+        this.label9.Size = new System.Drawing.Size(84, 13);
+        this.label9.TabIndex = 20;
+        this.label9.Text = "Version: 2.0";
+        // 
+        // speedTrackBar
+        // 
+        this.speedTrackBar.BackColor = System.Drawing.Color.Black;
+        this.speedTrackBar.Location = new System.Drawing.Point(12, 152);
+        this.speedTrackBar.Maximum = 31;
+        this.speedTrackBar.Minimum = -31;
+        this.speedTrackBar.Name = "speedTrackBar";
+        this.speedTrackBar.Size = new System.Drawing.Size(353, 45);
+        this.speedTrackBar.TabIndex = 5;
+        this.speedTrackBar.TickStyle = System.Windows.Forms.TickStyle.TopLeft;
+        this.speedTrackBar.ValueChanged += new System.EventHandler(this.speedTrackBar_ValueChanged);
+        this.speedTrackBar.MouseDown += new System.Windows.Forms.MouseEventHandler(this.speedTrackBar_MouseDown);
+        this.speedTrackBar.MouseUp += new System.Windows.Forms.MouseEventHandler(this.speedTrackBar_MouseUp);
+        // 
+        // currentPositionTrackBar
+        // 
+        this.currentPositionTrackBar.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+        this.currentPositionTrackBar.BackColor = System.Drawing.Color.Black;
+        this.currentPositionTrackBar.Enabled = false;
+        this.currentPositionTrackBar.Location = new System.Drawing.Point(13, 229);
+        this.currentPositionTrackBar.Name = "currentPositionTrackBar";
+        this.currentPositionTrackBar.Size = new System.Drawing.Size(650, 45);
+        this.currentPositionTrackBar.TabIndex = 6;
+        this.currentPositionTrackBar.TickStyle = System.Windows.Forms.TickStyle.None;
+        this.currentPositionTrackBar.ValueChanged += new System.EventHandler(this.currentPositionTrackBar_ValueChanged);
+        // 
+        // label3
+        // 
+        this.label3.AutoSize = true;
+        this.label3.Font = new System.Drawing.Font("Verdana", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+        this.label3.ForeColor = System.Drawing.Color.LightSkyBlue;
+        this.label3.Location = new System.Drawing.Point(129, 181);
+        this.label3.Name = "label3";
+        this.label3.Size = new System.Drawing.Size(103, 13);
+        this.label3.TabIndex = 7;
+        this.label3.Text = "Replay Speed: ";
+        // 
+        // replaySpeedLabel
+        // 
+        this.replaySpeedLabel.AutoSize = true;
+        this.replaySpeedLabel.Font = new System.Drawing.Font("Verdana", 8.25F, System.Drawing.FontStyle.Bold);
+        this.replaySpeedLabel.ForeColor = System.Drawing.Color.LightSkyBlue;
+        this.replaySpeedLabel.Location = new System.Drawing.Point(228, 181);
+        this.replaySpeedLabel.Name = "replaySpeedLabel";
+        this.replaySpeedLabel.Size = new System.Drawing.Size(23, 13);
+        this.replaySpeedLabel.TabIndex = 8;
+        this.replaySpeedLabel.Text = "1x";
+        // 
+        // groupBox1
+        // 
+        this.groupBox1.Controls.Add(this.isLegacyCB);
+        this.groupBox1.Controls.Add(this.rescanButton);
+        this.groupBox1.Controls.Add(this.scanProgressBar);
+        this.groupBox1.Controls.Add(this.pluginsLV);
+        this.groupBox1.Controls.Add(this.syncSolutionLabel);
+        this.groupBox1.Controls.Add(this.label8);
+        this.groupBox1.Controls.Add(this.playDoneSoundB);
+        this.groupBox1.Controls.Add(this.statusLabel);
+        this.groupBox1.Controls.Add(this.label6);
+        this.groupBox1.Controls.Add(this.label7);
+        this.groupBox1.Controls.Add(this.doneSoundCmbB);
+        this.groupBox1.ForeColor = System.Drawing.Color.White;
+        this.groupBox1.Location = new System.Drawing.Point(383, 7);
+        this.groupBox1.Name = "groupBox1";
+        this.groupBox1.Size = new System.Drawing.Size(280, 197);
+        this.groupBox1.TabIndex = 9;
+        this.groupBox1.TabStop = false;
+        // 
+        // rescanButton
+        // 
+        this.rescanButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+        this.rescanButton.ForeColor = System.Drawing.Color.Red;
+        this.rescanButton.Location = new System.Drawing.Point(217, 11);
+        this.rescanButton.Name = "rescanButton";
+        this.rescanButton.Size = new System.Drawing.Size(57, 23);
+        this.rescanButton.TabIndex = 23;
+        this.rescanButton.Text = "retry";
+        this.rescanButton.UseVisualStyleBackColor = true;
+        this.rescanButton.Visible = false;
+        this.rescanButton.Click += new System.EventHandler(this.rescanButton_Click);
+        // 
+        // scanProgressBar
+        // 
+        this.scanProgressBar.Location = new System.Drawing.Point(137, 40);
+        this.scanProgressBar.Name = "scanProgressBar";
+        this.scanProgressBar.Size = new System.Drawing.Size(117, 23);
+        this.scanProgressBar.Style = System.Windows.Forms.ProgressBarStyle.Marquee;
+        this.scanProgressBar.TabIndex = 22;
+        // 
+        // pluginsLV
+        // 
+        this.pluginsLV.BackColor = System.Drawing.Color.DimGray;
+        this.pluginsLV.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
+            this.pluginNameColumn,
+            this.pluginDescriptionColumn});
+        this.pluginsLV.ForeColor = System.Drawing.Color.White;
+        this.pluginsLV.FullRowSelect = true;
+        this.pluginsLV.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.Nonclickable;
+        this.pluginsLV.Location = new System.Drawing.Point(6, 110);
+        this.pluginsLV.Name = "pluginsLV";
+        this.pluginsLV.Size = new System.Drawing.Size(268, 81);
+        this.pluginsLV.TabIndex = 21;
+        this.pluginsLV.UseCompatibleStateImageBehavior = false;
+        this.pluginsLV.View = System.Windows.Forms.View.Details;
+        this.pluginsLV.ItemActivate += new System.EventHandler(this.pluginsLV_ItemActivate);
+        // 
+        // pluginNameColumn
+        // 
+        this.pluginNameColumn.Text = "Plugin";
+        this.pluginNameColumn.Width = 98;
+        // 
+        // pluginDescriptionColumn
+        // 
+        this.pluginDescriptionColumn.Text = "Description";
+        this.pluginDescriptionColumn.Width = 162;
+        // 
+        // syncSolutionLabel
+        // 
+        this.syncSolutionLabel.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold);
+        this.syncSolutionLabel.ForeColor = System.Drawing.Color.Red;
+        this.syncSolutionLabel.Location = new System.Drawing.Point(94, 67);
+        this.syncSolutionLabel.Name = "syncSolutionLabel";
+        this.syncSolutionLabel.Size = new System.Drawing.Size(180, 13);
+        this.syncSolutionLabel.TabIndex = 20;
+        // 
+        // label8
+        // 
+        this.label8.AutoSize = true;
+        this.label8.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+        this.label8.ForeColor = System.Drawing.Color.LightGray;
+        this.label8.Location = new System.Drawing.Point(6, 67);
+        this.label8.Name = "label8";
+        this.label8.Size = new System.Drawing.Size(91, 13);
+        this.label8.TabIndex = 6;
+        this.label8.Text = "Sync solution: ";
+        // 
+        // playDoneSoundB
+        // 
+        this.playDoneSoundB.BackColor = System.Drawing.Color.Black;
+        this.playDoneSoundB.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+        this.playDoneSoundB.FlatStyle = System.Windows.Forms.FlatStyle.Popup;
+        this.playDoneSoundB.Image = global::ReplaySeeker.Properties.Resources.Control_Sound;
+        this.playDoneSoundB.Location = new System.Drawing.Point(255, 84);
+        this.playDoneSoundB.Name = "playDoneSoundB";
+        this.playDoneSoundB.Size = new System.Drawing.Size(22, 23);
+        this.playDoneSoundB.TabIndex = 5;
+        this.playDoneSoundB.UseVisualStyleBackColor = false;
+        this.playDoneSoundB.Click += new System.EventHandler(this.playDoneSoundB_Click);
+        // 
+        // statusLabel
+        // 
+        this.statusLabel.AutoSize = true;
+        this.statusLabel.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold);
+        this.statusLabel.ForeColor = System.Drawing.Color.Red;
+        this.statusLabel.Location = new System.Drawing.Point(54, 16);
+        this.statusLabel.Name = "statusLabel";
+        this.statusLabel.Size = new System.Drawing.Size(110, 13);
+        this.statusLabel.TabIndex = 4;
+        this.statusLabel.Text = "I sense no replays";
+        // 
+        // label6
+        // 
+        this.label6.AutoSize = true;
+        this.label6.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+        this.label6.ForeColor = System.Drawing.Color.LightGray;
+        this.label6.Location = new System.Drawing.Point(6, 16);
+        this.label6.Name = "label6";
+        this.label6.Size = new System.Drawing.Size(51, 13);
+        this.label6.TabIndex = 3;
+        this.label6.Text = "Status: ";
+        // 
+        // label7
+        // 
+        this.label7.AutoSize = true;
+        this.label7.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+        this.label7.ForeColor = System.Drawing.Color.LightGray;
+        this.label7.Location = new System.Drawing.Point(6, 89);
+        this.label7.Name = "label7";
+        this.label7.Size = new System.Drawing.Size(99, 13);
+        this.label7.TabIndex = 2;
+        this.label7.Text = "Sound on sync: ";
+        // 
+        // doneSoundCmbB
+        // 
+        this.doneSoundCmbB.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+        this.doneSoundCmbB.FormattingEnabled = true;
+        this.doneSoundCmbB.Items.AddRange(new object[] {
+            "None",
+            "Windows Notify",
+            "Windows Tada"});
+        this.doneSoundCmbB.Location = new System.Drawing.Point(107, 86);
+        this.doneSoundCmbB.Name = "doneSoundCmbB";
+        this.doneSoundCmbB.Size = new System.Drawing.Size(147, 21);
+        this.doneSoundCmbB.TabIndex = 0;
+        this.doneSoundCmbB.SelectedIndexChanged += new System.EventHandler(this.doneSoundCmbB_SelectedIndexChanged);
+        // 
+        // label4
+        // 
+        this.label4.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+        this.label4.AutoSize = true;
+        this.label4.Font = new System.Drawing.Font("Verdana", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+        this.label4.ForeColor = System.Drawing.Color.LightSkyBlue;
+        this.label4.Location = new System.Drawing.Point(202, 252);
+        this.label4.Name = "label4";
+        this.label4.Size = new System.Drawing.Size(164, 13);
+        this.label4.TabIndex = 10;
+        this.label4.Text = "Current Replay Position:";
+        // 
+        // label5
+        // 
+        this.label5.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+        this.label5.AutoSize = true;
+        this.label5.Font = new System.Drawing.Font("Verdana", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+        this.label5.ForeColor = System.Drawing.Color.LightSkyBlue;
+        this.label5.Location = new System.Drawing.Point(202, 303);
+        this.label5.Name = "label5";
+        this.label5.Size = new System.Drawing.Size(165, 13);
+        this.label5.TabIndex = 12;
+        this.label5.Text = "Desired Replay Position:";
+        // 
+        // desiredPositionTrackBar
+        // 
+        this.desiredPositionTrackBar.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+        this.desiredPositionTrackBar.LargeChange = 60000;
+        this.desiredPositionTrackBar.Location = new System.Drawing.Point(13, 280);
+        this.desiredPositionTrackBar.Name = "desiredPositionTrackBar";
+        this.desiredPositionTrackBar.Size = new System.Drawing.Size(650, 45);
+        this.desiredPositionTrackBar.TabIndex = 11;
+        this.desiredPositionTrackBar.TickStyle = System.Windows.Forms.TickStyle.None;
+        this.desiredPositionTrackBar.ValueChanged += new System.EventHandler(this.desiredPositionTrackBar_ValueChanged);
+        // 
+        // desiredTimeTextBox
+        // 
+        this.desiredTimeTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+        this.desiredTimeTextBox.BackColor = System.Drawing.Color.Black;
+        this.desiredTimeTextBox.Font = new System.Drawing.Font("Verdana", 8.25F, System.Drawing.FontStyle.Bold);
+        this.desiredTimeTextBox.ForeColor = System.Drawing.Color.Gainsboro;
+        this.desiredTimeTextBox.Location = new System.Drawing.Point(370, 300);
+        this.desiredTimeTextBox.Name = "desiredTimeTextBox";
+        this.desiredTimeTextBox.Size = new System.Drawing.Size(100, 21);
+        this.desiredTimeTextBox.TabIndex = 13;
+        this.desiredTimeTextBox.Text = "59:56";
+        this.desiredTimeTextBox.TextChanged += new System.EventHandler(this.desiredTimeTextBox_TextChanged);
+        this.desiredTimeTextBox.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.desiredTimeTextBox_KeyPress);
+        // 
+        // synchronizeB
+        // 
+        this.synchronizeB.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+        this.synchronizeB.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+        this.synchronizeB.ForeColor = System.Drawing.Color.Red;
+        this.synchronizeB.Location = new System.Drawing.Point(203, 345);
+        this.synchronizeB.Name = "synchronizeB";
+        this.synchronizeB.Size = new System.Drawing.Size(270, 23);
+        this.synchronizeB.TabIndex = 14;
+        this.synchronizeB.Text = "Synchronize!";
+        this.synchronizeB.UseVisualStyleBackColor = true;
+        this.synchronizeB.Click += new System.EventHandler(this.synchronizeB_Click);
+        // 
+        // war3detectTimer
+        // 
+        this.war3detectTimer.Interval = 2000;
+        this.war3detectTimer.Tick += new System.EventHandler(this.war3detectTimer_Tick);
+        // 
+        // replayUpdateTimer
+        // 
+        this.replayUpdateTimer.Interval = 250;
+        this.replayUpdateTimer.Tick += new System.EventHandler(this.replayUpdateTimer_Tick);
+        // 
+        // replayLengthLabel
+        // 
+        this.replayLengthLabel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+        this.replayLengthLabel.Font = new System.Drawing.Font("Verdana", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+        this.replayLengthLabel.ForeColor = System.Drawing.Color.LightSkyBlue;
+        this.replayLengthLabel.Location = new System.Drawing.Point(597, 252);
+        this.replayLengthLabel.Name = "replayLengthLabel";
+        this.replayLengthLabel.Size = new System.Drawing.Size(72, 13);
+        this.replayLengthLabel.TabIndex = 15;
+        this.replayLengthLabel.Text = "1:30:00";
+        this.replayLengthLabel.TextAlign = System.Drawing.ContentAlignment.TopRight;
+        // 
+        // replayStartTimeLabel
+        // 
+        this.replayStartTimeLabel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+        this.replayStartTimeLabel.Font = new System.Drawing.Font("Verdana", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+        this.replayStartTimeLabel.ForeColor = System.Drawing.Color.LightSkyBlue;
+        this.replayStartTimeLabel.Location = new System.Drawing.Point(-9, 252);
+        this.replayStartTimeLabel.Name = "replayStartTimeLabel";
+        this.replayStartTimeLabel.Size = new System.Drawing.Size(72, 13);
+        this.replayStartTimeLabel.TabIndex = 16;
+        this.replayStartTimeLabel.Text = "00:00";
+        this.replayStartTimeLabel.TextAlign = System.Drawing.ContentAlignment.TopCenter;
+        // 
+        // desiredStartTimeLabel
+        // 
+        this.desiredStartTimeLabel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+        this.desiredStartTimeLabel.Font = new System.Drawing.Font("Verdana", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+        this.desiredStartTimeLabel.ForeColor = System.Drawing.Color.LightSkyBlue;
+        this.desiredStartTimeLabel.Location = new System.Drawing.Point(-9, 307);
+        this.desiredStartTimeLabel.Name = "desiredStartTimeLabel";
+        this.desiredStartTimeLabel.Size = new System.Drawing.Size(72, 13);
+        this.desiredStartTimeLabel.TabIndex = 17;
+        this.desiredStartTimeLabel.Text = "00:00";
+        this.desiredStartTimeLabel.TextAlign = System.Drawing.ContentAlignment.TopCenter;
+        // 
+        // desiredLengthLabel
+        // 
+        this.desiredLengthLabel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+        this.desiredLengthLabel.Font = new System.Drawing.Font("Verdana", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+        this.desiredLengthLabel.ForeColor = System.Drawing.Color.LightSkyBlue;
+        this.desiredLengthLabel.Location = new System.Drawing.Point(597, 307);
+        this.desiredLengthLabel.Name = "desiredLengthLabel";
+        this.desiredLengthLabel.Size = new System.Drawing.Size(72, 13);
+        this.desiredLengthLabel.TabIndex = 18;
+        this.desiredLengthLabel.Text = "1:30:00";
+        this.desiredLengthLabel.TextAlign = System.Drawing.ContentAlignment.TopRight;
+        // 
+        // currentTimeTextBox
+        // 
+        this.currentTimeTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+        this.currentTimeTextBox.BackColor = System.Drawing.Color.Black;
+        this.currentTimeTextBox.BorderStyle = System.Windows.Forms.BorderStyle.None;
+        this.currentTimeTextBox.Font = new System.Drawing.Font("Verdana", 8.25F, System.Drawing.FontStyle.Bold);
+        this.currentTimeTextBox.ForeColor = System.Drawing.Color.Gainsboro;
+        this.currentTimeTextBox.Location = new System.Drawing.Point(373, 252);
+        this.currentTimeTextBox.Name = "currentTimeTextBox";
+        this.currentTimeTextBox.ReadOnly = true;
+        this.currentTimeTextBox.Size = new System.Drawing.Size(100, 14);
+        this.currentTimeTextBox.TabIndex = 19;
+        this.currentTimeTextBox.Text = "49:07";
+        // 
+        // syncFlashTimer
+        // 
+        this.syncFlashTimer.Interval = 500;
+        this.syncFlashTimer.Tick += new System.EventHandler(this.syncFlashTimer_Tick);
+        // 
+        // menuStrip
+        // 
+        this.menuStrip.AutoSize = false;
+        this.menuStrip.BackColor = System.Drawing.Color.Black;
+        this.menuStrip.Dock = System.Windows.Forms.DockStyle.None;
+        this.menuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.aboutToolStripMenuItem,
+            this.helpToolStripMenuItem});
+        this.menuStrip.Location = new System.Drawing.Point(12, 117);
+        this.menuStrip.Name = "menuStrip";
+        this.menuStrip.RenderMode = System.Windows.Forms.ToolStripRenderMode.System;
+        this.menuStrip.Size = new System.Drawing.Size(353, 24);
+        this.menuStrip.TabIndex = 20;
+        this.menuStrip.Text = "menuStrip1";
+        // 
+        // aboutToolStripMenuItem
+        // 
+        this.aboutToolStripMenuItem.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right;
+        this.aboutToolStripMenuItem.ForeColor = System.Drawing.Color.White;
+        this.aboutToolStripMenuItem.Name = "aboutToolStripMenuItem";
+        this.aboutToolStripMenuItem.Size = new System.Drawing.Size(52, 20);
+        this.aboutToolStripMenuItem.Text = "About";
+        this.aboutToolStripMenuItem.Click += new System.EventHandler(this.aboutToolStripMenuItem_Click);
+        // 
+        // helpToolStripMenuItem
+        // 
+        this.helpToolStripMenuItem.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right;
+        this.helpToolStripMenuItem.ForeColor = System.Drawing.Color.White;
+        this.helpToolStripMenuItem.Name = "helpToolStripMenuItem";
+        this.helpToolStripMenuItem.Size = new System.Drawing.Size(44, 20);
+        this.helpToolStripMenuItem.Text = "Help";
+        this.helpToolStripMenuItem.Click += new System.EventHandler(this.helpToolStripMenuItem_Click);
+        // 
+        // playbackSpeedTextBox
+        // 
+        this.playbackSpeedTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+        this.playbackSpeedTextBox.BackColor = System.Drawing.Color.Black;
+        this.playbackSpeedTextBox.BorderStyle = System.Windows.Forms.BorderStyle.None;
+        this.playbackSpeedTextBox.Font = new System.Drawing.Font("Verdana", 8.25F, System.Drawing.FontStyle.Bold);
+        this.playbackSpeedTextBox.ForeColor = System.Drawing.Color.Khaki;
+        this.playbackSpeedTextBox.Location = new System.Drawing.Point(551, 213);
+        this.playbackSpeedTextBox.Name = "playbackSpeedTextBox";
+        this.playbackSpeedTextBox.ReadOnly = true;
+        this.playbackSpeedTextBox.Size = new System.Drawing.Size(39, 14);
+        this.playbackSpeedTextBox.TabIndex = 22;
+        this.playbackSpeedTextBox.Text = "1.00";
+        // 
+        // label10
+        // 
+        this.label10.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+        this.label10.AutoSize = true;
+        this.label10.Font = new System.Drawing.Font("Verdana", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+        this.label10.ForeColor = System.Drawing.Color.Khaki;
+        this.label10.Location = new System.Drawing.Point(386, 213);
+        this.label10.Name = "label10";
+        this.label10.Size = new System.Drawing.Size(159, 13);
+        this.label10.TabIndex = 21;
+        this.label10.Text = "Actual Playback Speed:";
+        // 
+        // turboCB
+        // 
+        this.turboCB.Font = new System.Drawing.Font("Verdana", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+        this.turboCB.ForeColor = System.Drawing.Color.Red;
+        this.turboCB.Location = new System.Drawing.Point(592, 209);
+        this.turboCB.Name = "turboCB";
+        this.turboCB.Size = new System.Drawing.Size(65, 24);
+        this.turboCB.TabIndex = 23;
+        this.turboCB.Text = "Turbo";
+        this.turboCB.UseVisualStyleBackColor = true;
+        this.turboCB.Visible = false;
+        // 
+        // isLegacyCB
+        // 
+        this.isLegacyCB.AutoSize = true;
+        this.isLegacyCB.ForeColor = System.Drawing.SystemColors.HighlightText;
+        this.isLegacyCB.Location = new System.Drawing.Point(6, 41);
+        this.isLegacyCB.Name = "isLegacyCB";
+        this.isLegacyCB.Size = new System.Drawing.Size(122, 17);
+        this.isLegacyCB.TabIndex = 21;
+        this.isLegacyCB.Text = "Is legacy ( <= 1.26a)";
+        this.isLegacyCB.UseVisualStyleBackColor = true;
+        this.isLegacyCB.CheckedChanged += new System.EventHandler(this.isLegacyCB_CheckedChanged);
+        // 
+        // MainForm
+        // 
+        this.BackColor = System.Drawing.Color.Black;
+        this.ClientSize = new System.Drawing.Size(675, 378);
+        this.Controls.Add(this.turboCB);
+        this.Controls.Add(this.playbackSpeedTextBox);
+        this.Controls.Add(this.label10);
+        this.Controls.Add(this.replaySpeedLabel);
+        this.Controls.Add(this.currentTimeTextBox);
+        this.Controls.Add(this.label3);
+        this.Controls.Add(this.desiredLengthLabel);
+        this.Controls.Add(this.desiredStartTimeLabel);
+        this.Controls.Add(this.speedTrackBar);
+        this.Controls.Add(this.replayStartTimeLabel);
+        this.Controls.Add(this.replayLengthLabel);
+        this.Controls.Add(this.synchronizeB);
+        this.Controls.Add(this.desiredTimeTextBox);
+        this.Controls.Add(this.label5);
+        this.Controls.Add(this.desiredPositionTrackBar);
+        this.Controls.Add(this.label4);
+        this.Controls.Add(this.groupBox1);
+        this.Controls.Add(this.currentPositionTrackBar);
+        this.Controls.Add(this.panel1);
+        this.Controls.Add(this.menuStrip);
+        this.MainMenuStrip = this.menuStrip;
+        this.MaximizeBox = false;
+        this.Name = "MainForm";
+        this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
+        this.Text = "Replay Seeker";
+        this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);
+        this.panel1.ResumeLayout(false);
+        this.panel1.PerformLayout();
+        ((System.ComponentModel.ISupportInitialize)(this.seekerPB)).EndInit();
+        ((System.ComponentModel.ISupportInitialize)(this.speedTrackBar)).EndInit();
+        ((System.ComponentModel.ISupportInitialize)(this.currentPositionTrackBar)).EndInit();
+        this.groupBox1.ResumeLayout(false);
+        this.groupBox1.PerformLayout();
+        ((System.ComponentModel.ISupportInitialize)(this.desiredPositionTrackBar)).EndInit();
+        this.menuStrip.ResumeLayout(false);
+        this.menuStrip.PerformLayout();
+        this.ResumeLayout(false);
+        this.PerformLayout();
+
     }
 
     private void OnReplayFound(IReplayManager replay)
@@ -682,6 +836,7 @@ namespace ReplaySeeker
 
     private void war3detectTimer_Tick(object sender, EventArgs e)
     {
+
       Process war3Process = (Process) null;
       foreach (Process process in Process.GetProcesses())
       {
@@ -693,30 +848,79 @@ namespace ReplaySeeker
       }
       if (this.isHooked)
       {
-        if (war3Process != null && !this.replay.IsAbandoned)
+        if (war3Process != null && !ReplayManager.manager.IsAbandoned)
           return;
         this.UnHook();
       }
       else
       {
-        if (war3Process == null)
-          return;
+          if (war3Process == null)
+              return;
+          this.statusLabel.Text = "Scanning memory...";
+          this.scanProgressBar.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
+          //Update();
+          if (ReplayManager.manager == null)
+          {
+              if (!ReplayManager.isScanning)
+              {
+                  if (!ReplayManager.isScanFailed) {
+                      this.isLegacyCB.Visible = false;
+                      ReplayManager.InitiateScan(war3Process, new ProcessMemoryReaderProgress(this.MemoryManager_MemoryScanProgress));
+                  } else {
+                      this.isLegacyCB.Visible = true;
+                      this.statusLabel.Text = "I sense no replay";
+                      this.scanProgressBar.Visible = false;
+                      this.rescanButton.Visible = true;
+                  }
+              }
+              else
+              {
+                  this.isLegacyCB.Visible = false;
+              }
+              return;
+          }
         this.Hook(war3Process);
       }
     }
 
+    
+
+    public void MemoryManager_MemoryScanProgress(float progress)
+    {
+        int val = 0;
+        if ((double)progress >= 0.0)
+        {
+            val = (int)((double)this.scanProgressBar.Maximum * (double)progress);
+        }
+        // To get around this animation, we need to move the progress bar backwards.
+        if (val == this.scanProgressBar.Maximum)
+        {
+            // Special case (can't set value > Maximum).
+            this.scanProgressBar.Value = val;           // Set the value
+            this.scanProgressBar.Value = val - 1;       // Move it backwards
+        }
+        else
+        {
+            this.scanProgressBar.Value = val + 1;       // Move past
+        }
+        this.scanProgressBar.Value = val; 
+    }
+
+
     private void Hook(Process war3Process)
     {
-      this.replay = ReplayManager.FromProcess(war3Process);
-      if (this.replay == null)
+      if (ReplayManager.manager == null)
         return;
+      this.isLegacyCB.Visible = false;
+      this.MemoryManager_MemoryScanProgress(0);
+      this.scanProgressBar.Visible = false;
       this.seekerPB.Image = (Image) ReplaySeeker.Properties.Resources.BTNThirst;
       this.statusLabel.Text = "Found a replay!";
       this.speedTrackBar.Enabled = true;
       this.replaySpeedLabel.Text = "1x";
       this.playbackSpeedTextBox.Text = "";
       this.playbackStopwatch.Start();
-      this.playbackPosition = this.replay.CurrentPosition;
+      this.playbackPosition = ReplayManager.manager.CurrentPosition;
       CultureInfo cultureInfo = Thread.CurrentThread.CurrentCulture.Clone() as CultureInfo;
       cultureInfo.NumberFormat.NumberDecimalSeparator = ".";
       Thread.CurrentThread.CurrentCulture = cultureInfo;
@@ -729,15 +933,19 @@ namespace ReplaySeeker
       this.synchronizeB.Enabled = true;
       this.replayUpdateTimer.Start();
       this.isHooked = true;
-      this.OnReplayFound((IReplayManager) this.replay);
+      this.OnReplayFound((IReplayManager) ReplayManager.manager);
     }
 
     private void UnHook()
     {
+      this.MemoryManager_MemoryScanProgress(0);
       this.replayUpdateTimer.Stop();
+      this.isLegacyCB.Visible = true;
       this.isHooked = false;
       this.seekerPB.Image = (Image) ReplaySeeker.Properties.Resources.DISBTNThirst;
-      this.statusLabel.Text = "I sense no replays";
+      this.scanProgressBar.Visible = true;
+      this.scanProgressBar.Style = System.Windows.Forms.ProgressBarStyle.Marquee;
+      this.statusLabel.Text = "Waiting for process...";
       this.speedTrackBar.Value = 0;
       this.speedTrackBar.Enabled = false;
       this.replaySpeedLabel.Text = "";
@@ -755,25 +963,25 @@ namespace ReplaySeeker
       this.desiredTimeTextBox.Text = "";
       this.desiredTimeTextBox.Enabled = false;
       this.update_sync_solution();
-      if (this.replay != null)
+      if (ReplayManager.manager != null)
       {
-        this.OnReplayNotFound((IReplayManager) this.replay);
-        this.replay.Dispose();
-        this.replay = (ReplayManager) null;
+        this.OnReplayNotFound((IReplayManager)ReplayManager.manager);
+        ReplayManager.manager.Dispose();
+        ReplayManager.manager = null;
       }
       this.synchronizeB.Enabled = false;
     }
 
     private void displayReplaySpeed()
     {
-      int speed = this.replay.GetSpeed();
+      int speed = ReplayManager.manager.GetSpeed();
       this.speedTrackBar.Tag = (object) true;
       this.speedTrackBar.Value = speed;
     }
 
     private void updateReplaySpeed()
     {
-      this.replay.SetSpeed(this.speedTrackBar.Value);
+        ReplayManager.manager.SetSpeed(this.speedTrackBar.Value);
     }
 
     private void displayReplayPosition(int position, int length)
@@ -837,15 +1045,19 @@ namespace ReplaySeeker
         return;
       if (!this.isSpeedChanging)
         this.displayReplaySpeed();
-      int currentPosition = this.replay.CurrentPosition;
-      this.displayReplayPosition(currentPosition, this.replay.ReplayLength);
+      int currentPosition = ReplayManager.manager.CurrentPosition;
+      this.displayReplayPosition(currentPosition, ReplayManager.manager.ReplayLength);
       this.displayPlaybackSpeed(currentPosition);
-     /* 
-      if (this.replay.Focused)
-        this.replay.TurboMode = true;
+
+      if (this.isLegacyCB.Checked)
+      {
+          ReplayManager.manager.TurboMode = ReplayManager.manager.Focused || this.turboCB.Checked;
+      }
       else
-        this.replay.TurboMode = this.turboCB.Checked;
-      */
+      {
+          ReplayManager.manager.TurboMode = false;
+      }
+         
     }
 
     private void speedTrackBar_MouseDown(object sender, MouseEventArgs e)
@@ -903,9 +1115,9 @@ namespace ReplaySeeker
         return;
       if (this.syncThread != null)
       {
-        this.replay.Paused = true;
-        this.replay.Activate(false);
-        this.replay.SetSpeed(0);
+        ReplayManager.manager.Paused = true;
+        ReplayManager.manager.Activate(false);
+        ReplayManager.manager.SetSpeed(0);
         this.stop_sync();
       }
       else
@@ -920,16 +1132,16 @@ namespace ReplaySeeker
     {
       this.synchronizeB.Text = "Cancel";
       if (this.desiredPositionTrackBar.Value < this.currentPositionTrackBar.Value)
-        this.replay.Restart();
-      this.replay.Activate(true);
-      this.replay.Paused = false;
-      this.replay.CurrentSpeed = (int) ushort.MaxValue;
+          ReplayManager.manager.Restart();
+      ReplayManager.manager.Activate(true);
+      ReplayManager.manager.Paused = false;
+      ReplayManager.manager.CurrentSpeed = (int)ushort.MaxValue;
       int num1 = -1;
       int num2 = 0;
       bool flag = true;
-      this.replay.ReliableCurrentPosition = -1;
+      ReplayManager.manager.ReliableCurrentPosition = -1;
       int reliableCurrentPosition;
-      while ((reliableCurrentPosition = this.replay.ReliableCurrentPosition) + num2 < this.desiredPositionTrackBar.Value)
+      while ((reliableCurrentPosition = ReplayManager.manager.ReliableCurrentPosition) + num2 < this.desiredPositionTrackBar.Value)
       {          
         if (num1 == -1)
           num1 = reliableCurrentPosition;
@@ -937,26 +1149,26 @@ namespace ReplaySeeker
         num1 = reliableCurrentPosition;
         if (flag && reliableCurrentPosition + num2 * 4 >= this.desiredPositionTrackBar.Value)
         {
-          int currentSpeed = this.replay.CurrentSpeed;
+          int currentSpeed = ReplayManager.manager.CurrentSpeed;
           if (currentSpeed > 8)
-            this.replay.CurrentSpeed = 8;
+            ReplayManager.manager.CurrentSpeed = 8;
           else if (currentSpeed > 4)
           {
-            this.replay.CurrentSpeed = 4;
+            ReplayManager.manager.CurrentSpeed = 4;
           }
           else
           {
-            this.replay.CurrentSpeed = 2;
+            ReplayManager.manager.CurrentSpeed = 2;
             flag = false;
           }
         }
-        if (this.replay.Paused)
-          this.replay.Paused = false;
+        if (ReplayManager.manager.Paused)
+          ReplayManager.manager.Paused = false;
         Thread.Sleep(100);
       }
-      this.replay.Paused = true;
-      this.replay.Activate(false);
-      this.replay.CurrentSpeed = 1;
+      ReplayManager.manager.Paused = true;
+      ReplayManager.manager.Activate(false);
+      ReplayManager.manager.CurrentSpeed = 1;
       this.play_sync_done();
       this.stop_sync();
     }
@@ -1002,7 +1214,8 @@ namespace ReplaySeeker
     private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
     {
       this.stop_sync();
-      RSCFG.Items["Options"]["TurboMode"] = (object)0;// (this.turboCB.Checked ? 1 : 0);
+      RSCFG.Items["Options"]["LegacyMode"] = (object)(this.isLegacyCB.Checked ? 1 : 0);
+      RSCFG.Items["Options"]["TurboMode"] = (object)(this.isLegacyCB.Checked && this.turboCB.Checked ? 1 : 0);
       RSCFG.Items["Options"]["ProcessName"] = (object) this.rgWar3processName.ToString().Replace(".*", "*");
       this.OnAppClose();
     }
@@ -1035,6 +1248,20 @@ namespace ReplaySeeker
     private void desiredTimeTextBox_TextChanged(object sender, EventArgs e)
     {
       this.parseDesiredTime();
+    }
+
+    private void rescanButton_Click(object sender, EventArgs e)
+    {
+        this.isLegacyCB.Visible = false;
+        ReplayManager.isScanFailed = false;
+        this.rescanButton.Visible = false;
+        this.scanProgressBar.Visible = true;
+        this.statusLabel.Text = "Initiating rescan...";
+    }
+
+    private void isLegacyCB_CheckedChanged(object sender, EventArgs e)
+    {
+        ReplayManager.isLegacy =  this.turboCB.Visible =  this.isLegacyCB.Checked;
     }
   }
 }
