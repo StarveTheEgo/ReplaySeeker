@@ -71,7 +71,7 @@ namespace ReplaySeeker
     private Thread syncThread;
     private ProgressBar scanProgressBar;
     private Button rescanButton;
-    private CheckBox isLegacyCB;
+    private ComboBox versionCBox;
     private int playbackPosition;
 
     public Form AppForm
@@ -127,16 +127,51 @@ namespace ReplaySeeker
     public MainForm()
     {
       Control.CheckForIllegalCrossThreadCalls = false;
+      this.InitiateOffsetsData();
       this.InitializeComponent();
       this.Icon = ReplaySeeker.Properties.Resources.Icon;
       this.menuStrip.Renderer = (ToolStripRenderer) UIRenderers.NoBorderRenderer;
       this.UnHook();
       this.doneSoundCmbB.SelectedIndex = RSCFG.Items["Options"].GetIntValue("DoneSound", 1);
-      this.isLegacyCB.Checked = RSCFG.Items["Options"].GetIntValue("LegacyMode", 0) == 1;
-      this.turboCB.Checked = this.isLegacyCB.Checked && RSCFG.Items["Options"].GetIntValue("TurboMode", 0) == 1;
+      //this.isLegacyCB.Checked = RSCFG.Items["Options"].GetIntValue("LegacyMode", 0) == 1;
+      this.turboCB.Checked = false; //RSCFG.Items["Options"].GetIntValue("TurboMode", 0) == 1;
       this.rgWar3processName = new Regex(RSCFG.Items["Options"].GetStringValue("ProcessName", "war3").Replace("*", ".*"), RegexOptions.IgnoreCase);
       this.LoadPlugins();
       this.war3detectTimer.Start();
+    }
+
+    private void InitiateOffsetsData()
+    {
+        OffsetsData offsets;
+        // diffs in comments are from 1.26 
+        offsets.ReplayLengthOffset = 2708;  // + 400
+        offsets.TempReplayPathOffset = 4076; // + 592 for rest
+        offsets.ReplayPositionOffset = 8048;
+        offsets.ReplaySpeedOffset = 9652;
+        offsets.ReplaySpeedDividerOffset = 9656;
+        offsets.PauseOffset = 9660;
+        offsets.StatusCodeOffset = 9608;
+        ReplayManager.RegisterVersionData("1.28", offsets);
+
+        offsets.ReplayLengthOffset = 2308;
+        offsets.TempReplayPathOffset = 3484; 
+        offsets.ReplayPositionOffset = 7456;
+        offsets.ReplaySpeedOffset = 9060;
+        offsets.ReplaySpeedDividerOffset = 9064;
+        offsets.PauseOffset = 9068;
+        offsets.StatusCodeOffset = 9016;
+        ReplayManager.RegisterVersionData("1.26", offsets);
+
+        this.updateVersionsList();
+    }
+
+    private void updateVersionsList()
+    {
+        //versionCBox
+        foreach (KeyValuePair<string, OffsetsData> entry in ReplayManager.VersionsData)
+        {
+            this.versionCBox.Items.Add(entry.Key);
+        }
     }
 
     protected override void Dispose(bool disposing)
@@ -191,7 +226,7 @@ namespace ReplaySeeker
         this.playbackSpeedTextBox = new System.Windows.Forms.TextBox();
         this.label10 = new System.Windows.Forms.Label();
         this.turboCB = new System.Windows.Forms.CheckBox();
-        this.isLegacyCB = new System.Windows.Forms.CheckBox();
+        this.versionCBox = new System.Windows.Forms.ComboBox();
         this.panel1.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)(this.seekerPB)).BeginInit();
         ((System.ComponentModel.ISupportInitialize)(this.speedTrackBar)).BeginInit();
@@ -325,7 +360,7 @@ namespace ReplaySeeker
         // 
         // groupBox1
         // 
-        this.groupBox1.Controls.Add(this.isLegacyCB);
+        this.groupBox1.Controls.Add(this.versionCBox);
         this.groupBox1.Controls.Add(this.rescanButton);
         this.groupBox1.Controls.Add(this.scanProgressBar);
         this.groupBox1.Controls.Add(this.pluginsLV);
@@ -358,7 +393,7 @@ namespace ReplaySeeker
         // 
         // scanProgressBar
         // 
-        this.scanProgressBar.Location = new System.Drawing.Point(137, 40);
+        this.scanProgressBar.Location = new System.Drawing.Point(157, 40);
         this.scanProgressBar.Name = "scanProgressBar";
         this.scanProgressBar.Size = new System.Drawing.Size(117, 23);
         this.scanProgressBar.Style = System.Windows.Forms.ProgressBarStyle.Marquee;
@@ -681,17 +716,13 @@ namespace ReplaySeeker
         this.turboCB.UseVisualStyleBackColor = true;
         this.turboCB.Visible = false;
         // 
-        // isLegacyCB
+        // versionCBox
         // 
-        this.isLegacyCB.AutoSize = true;
-        this.isLegacyCB.ForeColor = System.Drawing.SystemColors.HighlightText;
-        this.isLegacyCB.Location = new System.Drawing.Point(6, 41);
-        this.isLegacyCB.Name = "isLegacyCB";
-        this.isLegacyCB.Size = new System.Drawing.Size(122, 17);
-        this.isLegacyCB.TabIndex = 21;
-        this.isLegacyCB.Text = "Is legacy ( <= 1.26a)";
-        this.isLegacyCB.UseVisualStyleBackColor = true;
-        this.isLegacyCB.CheckedChanged += new System.EventHandler(this.isLegacyCB_CheckedChanged);
+        this.versionCBox.FormattingEnabled = true;
+        this.versionCBox.Location = new System.Drawing.Point(9, 40);
+        this.versionCBox.Name = "versionCBox";
+        this.versionCBox.Size = new System.Drawing.Size(142, 21);
+        this.versionCBox.TabIndex = 24;
         // 
         // MainForm
         // 
@@ -864,10 +895,10 @@ namespace ReplaySeeker
               if (!ReplayManager.isScanning)
               {
                   if (!ReplayManager.isScanFailed) {
-                      this.isLegacyCB.Visible = false;
+                      //this.isLegacyCB.Visible = false;
                       ReplayManager.InitiateScan(war3Process, new ProcessMemoryReaderProgress(this.MemoryManager_MemoryScanProgress));
                   } else {
-                      this.isLegacyCB.Visible = true;
+                      //this.isLegacyCB.Visible = true;
                       this.statusLabel.Text = "I sense no replay";
                       this.scanProgressBar.Visible = false;
                       this.rescanButton.Visible = true;
@@ -875,7 +906,7 @@ namespace ReplaySeeker
               }
               else
               {
-                  this.isLegacyCB.Visible = false;
+                  //this.isLegacyCB.Visible = false;
               }
               return;
           }
@@ -911,7 +942,7 @@ namespace ReplaySeeker
     {
       if (ReplayManager.manager == null)
         return;
-      this.isLegacyCB.Visible = false;
+      //this.isLegacyCB.Visible = false;
       this.MemoryManager_MemoryScanProgress(0);
       this.scanProgressBar.Visible = false;
       this.seekerPB.Image = (Image) ReplaySeeker.Properties.Resources.BTNThirst;
@@ -940,7 +971,7 @@ namespace ReplaySeeker
     {
       this.MemoryManager_MemoryScanProgress(0);
       this.replayUpdateTimer.Stop();
-      this.isLegacyCB.Visible = true;
+      //this.isLegacyCB.Visible = true;
       this.isHooked = false;
       this.seekerPB.Image = (Image) ReplaySeeker.Properties.Resources.DISBTNThirst;
       this.scanProgressBar.Visible = true;
@@ -1049,14 +1080,7 @@ namespace ReplaySeeker
       this.displayReplayPosition(currentPosition, ReplayManager.manager.ReplayLength);
       this.displayPlaybackSpeed(currentPosition);
 
-      if (this.isLegacyCB.Checked)
-      {
-          ReplayManager.manager.TurboMode = ReplayManager.manager.Focused || this.turboCB.Checked;
-      }
-      else
-      {
-          ReplayManager.manager.TurboMode = false;
-      }
+      ReplayManager.manager.TurboMode = false;// ReplayManager.manager.Focused || this.turboCB.Checked;
          
     }
 
@@ -1214,8 +1238,7 @@ namespace ReplaySeeker
     private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
     {
       this.stop_sync();
-      RSCFG.Items["Options"]["LegacyMode"] = (object)(this.isLegacyCB.Checked ? 1 : 0);
-      RSCFG.Items["Options"]["TurboMode"] = (object)(this.isLegacyCB.Checked && this.turboCB.Checked ? 1 : 0);
+      RSCFG.Items["Options"]["TurboMode"] = 0; // (object)(this.turboCB.Checked ? 1 : 0);
       RSCFG.Items["Options"]["ProcessName"] = (object) this.rgWar3processName.ToString().Replace(".*", "*");
       this.OnAppClose();
     }
@@ -1252,16 +1275,13 @@ namespace ReplaySeeker
 
     private void rescanButton_Click(object sender, EventArgs e)
     {
-        this.isLegacyCB.Visible = false;
+        //this.isLegacyCB.Visible = false;
         ReplayManager.isScanFailed = false;
         this.rescanButton.Visible = false;
         this.scanProgressBar.Visible = true;
         this.statusLabel.Text = "Initiating rescan...";
     }
 
-    private void isLegacyCB_CheckedChanged(object sender, EventArgs e)
-    {
-        ReplayManager.isLegacy =  this.turboCB.Visible =  this.isLegacyCB.Checked;
-    }
+    
   }
 }
