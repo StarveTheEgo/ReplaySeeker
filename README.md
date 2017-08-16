@@ -6,21 +6,37 @@ NOTE: I do not own any rights on this program, but since authors stopped develop
 I can delete this project if authors dont want it to be here. But we really need this one, we need it to be alive.
 
 Somewhat changelog:
-17.08.2017
-Still beta:
+
+
+## 17.08.2017
+**Still beta:**
+
+
 - Added multiple versions support, ability to choice (1.26, 1.27, 1.28 are available now and should work)
 - Implemented simple version of custom offsets setting (run ReplaySeeker once and look in the repseek.cfg file)
-16.08.2017
-Beta version: 
+
+
+## 16.08.2017
+**Beta version:**
+
+
 - added progressbar for memory scanning progress
 - added more information into main window
 - started adding multiversioning support (currently supports 1.26a and 1.28+);
-14.08.2017
+
+
+## 14.08.2017
+
+
 - SimpleCamera is working too now
 - Removed my tests from code
 - Disabled 'Turbo' checkbox
 - Fixed few crashes and bugs
-13.08.2017
+
+
+## 13.08.2017
+
+
 - Added decompiled sources
 - ReplaySeeker is working now
 
