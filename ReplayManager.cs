@@ -21,12 +21,13 @@ namespace ReplaySeeker
         public int ReplaySpeedDividerOffset;
         public int PauseOffset;
         public int StatusCodeOffset;
+        public int TurboModeOffset;
     }
     public class ReplayManager : IReplayManager
     {
         // @todo: learn to make private set here
         public static Dictionary<string, OffsetsData> VersionsData = new Dictionary<string, OffsetsData>();
-
+        public static int GameDllBase { get; private set; }
 
         public static int TempReplayPathOffset { get; private set; }
         public static int ReplayLengthOffset { get; private set; }
@@ -35,9 +36,10 @@ namespace ReplaySeeker
         public static int ReplaySpeedDividerOffset { get; private set; }
         public static int PauseOffset { get; private set; }
         public static int StatusCodeOffset { get; private set; }
+        public static int TurboModeOffset { get; private set; } //= 1873326436; // did not find yet.
         public static readonly int STATUS_NONE = 1313820229;
         public static readonly int STATUS_LOOP = 1280266064;
-        public static readonly int TurboModeLocation = 1873326436; // did not find yet.
+        
         public static int ReplayRestartWaitTime = 1000;
 
         public static bool isScanning = false;
@@ -78,6 +80,7 @@ namespace ReplaySeeker
             ReplayManager.ReplaySpeedDividerOffset = offsets.ReplaySpeedDividerOffset;
             ReplayManager.PauseOffset = offsets.PauseOffset;
             ReplayManager.StatusCodeOffset = offsets.StatusCodeOffset;
+            ReplayManager.TurboModeOffset = offsets.TurboModeOffset;
 
             ReplayManager.currentVersion = version;
         }
@@ -181,11 +184,14 @@ namespace ReplaySeeker
         {
             get
             {
-                return this.pReader.ReadInt32(ReplayManager.TurboModeLocation) == 1;
+                return ReplayManager.GameDllBase > 0 && this.pReader.ReadInt32(ReplayManager.TurboModeOffset) == 1;
             }
             set
             {
-                this.pReader.WriteInt32(ReplayManager.TurboModeLocation, value ? 1 : 0);
+                if (ReplayManager.GameDllBase > 0 && ReplayManager.TurboModeOffset != 0)
+                {
+                    this.pReader.WriteInt32(ReplayManager.GameDllBase + ReplayManager.TurboModeOffset, value ? 1 : 0);
+                }
             }
         }
 
@@ -273,6 +279,15 @@ namespace ReplaySeeker
                 
             if (flag)
             {
+                ProcessModuleCollection modules = process.Modules;
+                foreach (ProcessModule module in modules)
+                {
+                    if (module.ModuleName == "Game.dll")
+                    {
+                        ReplayManager.GameDllBase = (int)(module.BaseAddress);
+                        break;
+                    }
+                }
                 ReplayManager.manager = new ReplayManager(pReader, memoryBlockLocation);
             } else {
                 if (ReplayManager.manager != null)
@@ -311,8 +326,8 @@ namespace ReplaySeeker
             */
             // i`ve tried some coordinates, did not make it working yet
             // will investigate someday :D
-            double num1 = this.pReader.CalculateAbsoluteCoordinateX(365);
-            double num2 = this.pReader.CalculateAbsoluteCoordinateY(23);
+            double num1 = this.pReader.CalculateAbsoluteCoordinateX(738);
+            double num2 = this.pReader.CalculateAbsoluteCoordinateY(575);
             /*if (Screen.PrimaryScreen.Bounds != normalPosition)
             {
               num1 = ((double) normalPosition.X + num1 * (double) normalPosition.Width) / (double) Screen.PrimaryScreen.Bounds.Width;
@@ -324,12 +339,12 @@ namespace ReplaySeeker
             mInputs[0].dx = (int)num1;
             mInputs[0].dy = (int)num2;
             mInputs[0].mouseData = 0U;
-            mInputs[0].dwFlags = 32769U;
+            mInputs[0].dwFlags = Send.Constants.MOUSEEVENTF_MOVE | Send.Constants.MOUSEEVENTF_ABSOLUTE;
             mInputs[0].time = 0U;
             mInputs[1] = mInputs[0];
-            mInputs[1].dwFlags = 32770U;
+            mInputs[1].dwFlags = Send.Constants.MOUSEEVENTF_LEFTDOWN | Send.Constants.MOUSEEVENTF_ABSOLUTE;
             mInputs[2] = mInputs[0];
-            mInputs[2].dwFlags = 32772U;
+            mInputs[2].dwFlags = Send.Constants.MOUSEEVENTF_LEFTUP | Send.Constants.MOUSEEVENTF_ABSOLUTE;
             Send.MouseInput(mInputs);
             Thread.Sleep(ReplayManager.ReplayRestartWaitTime);
             if (minimized)

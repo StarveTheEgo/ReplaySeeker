@@ -141,7 +141,7 @@ namespace ReplaySeeker
       {
           this.versionCBox.SelectedIndex = savedVersionIndex;
       }
-      this.turboCB.Checked = false; //RSCFG.Items["Options"].GetIntValue("TurboMode", 0) == 1;
+      this.turboCB.Checked = RSCFG.Items["Options"].GetIntValue("TurboMode", 0) == 1;
       this.rgWar3processName = new Regex(RSCFG.Items["Options"].GetStringValue("ProcessName", "war3").Replace("*", ".*"), RegexOptions.IgnoreCase);
       this.LoadPlugins();
       this.war3detectTimer.Start();
@@ -160,6 +160,7 @@ namespace ReplaySeeker
         offsets.ReplaySpeedDividerOffset = 9656;
         offsets.PauseOffset = 9660;
         offsets.StatusCodeOffset = 9608;
+        offsets.TurboModeOffset = 0xCA3E74; // Game.dll+CA3E74 // no effect
         ReplayManager.RegisterVersionData("1.28", offsets);
 
         // 1.27.X
@@ -170,6 +171,7 @@ namespace ReplaySeeker
         offsets.ReplaySpeedDividerOffset = 9072;
         offsets.PauseOffset = 9076;
         offsets.StatusCodeOffset = 9024; //  
+        offsets.TurboModeOffset = 0xCD5E74; // Game.dll+CD5E74
         ReplayManager.RegisterVersionData("1.27", offsets); 
 
         // 1.26.X
@@ -180,6 +182,7 @@ namespace ReplaySeeker
         offsets.ReplaySpeedDividerOffset = 9064;
         offsets.PauseOffset = 9068;
         offsets.StatusCodeOffset = 9016;
+        offsets.TurboModeOffset = 0xA9E7A4; // Game.dll+A9E7A4
         ReplayManager.RegisterVersionData("1.26", offsets);
 
         /* 
@@ -196,6 +199,7 @@ namespace ReplaySeeker
         offsets.ReplaySpeedDividerOffset = RSCFG.Items["CustomOffsets"].GetIntValue("ReplaySpeedDividerOffset", offsets.ReplaySpeedDividerOffset);
         offsets.PauseOffset = RSCFG.Items["CustomOffsets"].GetIntValue("PauseOffset", offsets.PauseOffset);
         offsets.StatusCodeOffset = RSCFG.Items["CustomOffsets"].GetIntValue("StatusCodeOffset", offsets.StatusCodeOffset);
+        offsets.TurboModeOffset = RSCFG.Items["CustomOffsets"].GetIntValue("TurboModeOffset", offsets.TurboModeOffset);
         ReplayManager.RegisterVersionData("Custom", offsets);
         this.updateVersionsList();
     }
@@ -773,7 +777,6 @@ namespace ReplaySeeker
         this.turboCB.TabIndex = 23;
         this.turboCB.Text = "Turbo";
         this.turboCB.UseVisualStyleBackColor = true;
-        this.turboCB.Visible = false;
         // 
         // label11
         // 
@@ -971,7 +974,12 @@ namespace ReplaySeeker
               }
               return;
           }
-        this.Hook(war3Process);
+
+          if (ReplayManager.GameDllBase > 0 && ReplayManager.TurboModeOffset != 0)
+          {
+              this.turboCB.Visible = true;
+          }
+          this.Hook(war3Process);
       }
     }
 
@@ -1141,7 +1149,7 @@ namespace ReplaySeeker
       this.displayReplayPosition(currentPosition, ReplayManager.manager.ReplayLength);
       this.displayPlaybackSpeed(currentPosition);
 
-      ReplayManager.manager.TurboMode = false;// ReplayManager.manager.Focused || this.turboCB.Checked;
+      ReplayManager.manager.TurboMode = ReplayManager.manager.Focused || this.turboCB.Checked;
          
     }
 
@@ -1301,7 +1309,7 @@ namespace ReplaySeeker
       this.stop_sync();
       string savedVersion = RSCFG.Items["Options"].GetStringValue("WarcraftVersion", "");
       RSCFG.Items["Options"]["WarcraftVersion"] = (string)this.versionCBox.SelectedItem;
-      RSCFG.Items["Options"]["TurboMode"] = 0; // (object)(this.turboCB.Checked ? 1 : 0);
+      RSCFG.Items["Options"]["TurboMode"] = (object)(this.turboCB.Checked ? 1 : 0);
       RSCFG.Items["Options"]["ProcessName"] = (object) this.rgWar3processName.ToString().Replace(".*", "*");
 
       /*
@@ -1315,6 +1323,7 @@ namespace ReplaySeeker
       RSCFG.Items["CustomOffsets"]["ReplaySpeedDividerOffset"] = offsets.ReplaySpeedDividerOffset;
       RSCFG.Items["CustomOffsets"]["PauseOffset"] = offsets.PauseOffset;
       RSCFG.Items["CustomOffsets"]["StatusCodeOffset"] = offsets.StatusCodeOffset;
+      RSCFG.Items["CustomOffsets"]["TurboModeOffset"] = offsets.TurboModeOffset;
        
       this.OnAppClose();
     }
