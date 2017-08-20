@@ -21,6 +21,7 @@ namespace ReplaySeeker
         public int ReplaySpeedDividerOffset;
         public int PauseOffset;
         public int StatusCodeOffset;
+        // Game.dll offsets
         public int TurboModeOffset;
     }
     public class ReplayManager : IReplayManager
@@ -51,8 +52,9 @@ namespace ReplaySeeker
 
         public static string currentVersion;
 
-        public static bool isScanFailed;
-        public static bool IsEnabled
+        public static bool isScanStopped = false;
+
+        public static bool isEnabled
         {
             get
             {
@@ -72,16 +74,19 @@ namespace ReplaySeeker
 
         public static void updateCurrentVersion(string version)
         {
-            OffsetsData offsets = ReplayManager.getVersionOffsets(version);
-            ReplayManager.ReplayLengthOffset = offsets.ReplayLengthOffset;
-            ReplayManager.TempReplayPathOffset = offsets.TempReplayPathOffset;
-            ReplayManager.ReplayPositionOffset = offsets.ReplayPositionOffset;
-            ReplayManager.ReplaySpeedOffset = offsets.ReplaySpeedOffset;
-            ReplayManager.ReplaySpeedDividerOffset = offsets.ReplaySpeedDividerOffset;
-            ReplayManager.PauseOffset = offsets.PauseOffset;
-            ReplayManager.StatusCodeOffset = offsets.StatusCodeOffset;
-            ReplayManager.TurboModeOffset = offsets.TurboModeOffset;
-
+            if (version != "Auto")
+            {
+                OffsetsData offsets = ReplayManager.getVersionOffsets(version);
+                ReplayManager.ReplayLengthOffset = offsets.ReplayLengthOffset;
+                ReplayManager.TempReplayPathOffset = offsets.TempReplayPathOffset;
+                ReplayManager.ReplayPositionOffset = offsets.ReplayPositionOffset;
+                ReplayManager.ReplaySpeedOffset = offsets.ReplaySpeedOffset;
+                ReplayManager.ReplaySpeedDividerOffset = offsets.ReplaySpeedDividerOffset;
+                ReplayManager.PauseOffset = offsets.PauseOffset;
+                ReplayManager.StatusCodeOffset = offsets.StatusCodeOffset;
+                ReplayManager.TurboModeOffset = offsets.TurboModeOffset;
+            } 
+           
             ReplayManager.currentVersion = version;
         }
 
@@ -250,10 +255,11 @@ namespace ReplaySeeker
 
         public static void Scanner(object obj)
         {
-            if (ReplayManager.isScanning || ReplayManager.currentVersion == null)
+            if (ReplayManager.isScanning || ReplayManager.currentVersion == null || ReplayManager.isScanStopped)
                 return;
+            ReplayManager.GameDllBase = 0;
+            //ReplayManager.isScanStopped = false;
             ReplayManager.isScanning = true;
-            ReplayManager.isScanFailed = false;
             ProcessMemoryReader pReader = new ProcessMemoryReader();
             Process process = (Process) ((object[]) obj)[0];
             ProcessMemoryReaderProgress memoryScanProgress = (ProcessMemoryReaderProgress) ((object[]) obj)[1];
@@ -261,22 +267,61 @@ namespace ReplaySeeker
             pReader.ReadProcess = process;
             pReader.OpenProcess();
             bool flag = false;
+            int iterations = 0;
             int memoryBlockLocation = 65536;
-            while (memoryBlockLocation < 2147418112)
+            int LocalStatusCodeOffset = 0;
+            int LocalTempReplayPathOffset = 0;
+            Dictionary<string, OffsetsData> offsetsToScan = new Dictionary<string, OffsetsData>();
+
+            foreach (KeyValuePair<string, OffsetsData> entry in ReplayManager.VersionsData)
+            {
+                if (ReplayManager.currentVersion == "Auto" || ReplayManager.currentVersion == entry.Key)
+                {
+                    offsetsToScan.Add(entry.Key, entry.Value);
+                }
+                    
+            }
+
+            if (offsetsToScan.Count == 0)
+            {
+                // @todo Show some error here
+                return;
+            }
+
+            while (memoryBlockLocation < 2147418112 && !ReplayManager.isScanStopped)
             {
                 if (memoryBlockLocation % 3145728 == 0 && memoryScanProgress != null)
                 {
                     memoryScanProgress((float)memoryBlockLocation / 2147418112);
                 }
-                if (pReader.ReadProcessInt32(memoryBlockLocation + ReplayManager.StatusCodeOffset) == ReplayManager.STATUS_LOOP)
+
+                if (iterations % 656 == 0)
                 {
-                    flag = (int)pReader.ReadProcessByte(memoryBlockLocation+ ReplayManager.TempReplayPathOffset) == 0;
-                    break;
+                    System.Diagnostics.Debug.WriteLine((float)memoryBlockLocation / 2147418112);
+                    Thread.Sleep(10);
                 }
+
+                foreach (KeyValuePair<string, OffsetsData> entry in offsetsToScan)
+                {
+                   LocalStatusCodeOffset = entry.Value.StatusCodeOffset;
+                   LocalTempReplayPathOffset = entry.Value.TempReplayPathOffset;
+                   if (pReader.ReadProcessInt32(memoryBlockLocation + LocalStatusCodeOffset) == ReplayManager.STATUS_LOOP)
+                   {
+                       flag = (int)pReader.ReadProcessByte(memoryBlockLocation + LocalTempReplayPathOffset) == 0;
+                       if (flag && ReplayManager.currentVersion == "Auto")
+                       {
+                           ReplayManager.updateCurrentVersion(entry.Key);
+                       }
+                       break;
+                   }
+                }
+                
                 memoryBlockLocation += 65536;
+                iterations++;
             }
             pReader.CloseHandle();
-                
+            
+
             if (flag)
             {
                 ProcessModuleCollection modules = process.Modules;
@@ -288,6 +333,10 @@ namespace ReplaySeeker
                         break;
                     }
                 }
+                if (ReplayManager.isScanStopped)
+                {
+                    ReplayManager.isScanStopped = false;
+                }
                 ReplayManager.manager = new ReplayManager(pReader, memoryBlockLocation);
             } else {
                 if (ReplayManager.manager != null)
@@ -295,7 +344,6 @@ namespace ReplaySeeker
                     ReplayManager.manager.Dispose();
                     ReplayManager.manager = null;
                 }
-                ReplayManager.isScanFailed = true;
             }
             ReplayManager.isScanning = false;    
         }
@@ -319,22 +367,12 @@ namespace ReplaySeeker
             this.Minimized = false;
             this.BringWindowToForeground();
             Thread.Sleep(500);         
-           /*
-            // here is original decompilled code
-            double num1 = 365.0 / 400.0;
-            double num2 = 23.0 / 24.0;
-            */
+
             // i`ve tried some coordinates, did not make it working yet
             // will investigate someday :D
-            double num1 = this.pReader.CalculateAbsoluteCoordinateX(738);
-            double num2 = this.pReader.CalculateAbsoluteCoordinateY(575);
-            /*if (Screen.PrimaryScreen.Bounds != normalPosition)
-            {
-              num1 = ((double) normalPosition.X + num1 * (double) normalPosition.Width) / (double) Screen.PrimaryScreen.Bounds.Width;
-              num2 = ((double) normalPosition.Y + num2 * (double) normalPosition.Height) / (double) Screen.PrimaryScreen.Bounds.Height;
-            }*/
-            //int num3 = (int)(num1 * (double)ushort.MaxValue);
-            //int num4 = (int)(num2 * (double)ushort.MaxValue);
+            // upd: works for 1600x900, haven`t tested on another resolutions yet
+            double num1 = this.pReader.CalculateAbsoluteCoordinateX(1476);
+            double num2 = this.pReader.CalculateAbsoluteCoordinateY(864);
             Send.MOUSEINPUT[] mInputs = new Send.MOUSEINPUT[3];
             mInputs[0].dx = (int)num1;
             mInputs[0].dy = (int)num2;

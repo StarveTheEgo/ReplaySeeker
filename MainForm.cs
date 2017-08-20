@@ -70,10 +70,12 @@ namespace ReplaySeeker
     private Regex rgWar3processName;
     private Thread syncThread;
     private ProgressBar scanProgressBar;
-    private Button rescanButton;
+    private Button stopScanButton;
     private ComboBox versionCBox;
     private Label label11;
+    private System.Windows.Forms.Timer replayDetectTimer;
     private int playbackPosition;
+    private Process war3Process;
 
     public Form AppForm
     {
@@ -153,36 +155,39 @@ namespace ReplaySeeker
         // diffs in comments are from 1.26 
 
         // 1.28.X
-        offsets.ReplayLengthOffset = 2708;  // diff: +400 //
-        offsets.TempReplayPathOffset = 4076; // diff: +592 for rest
-        offsets.ReplayPositionOffset = 8048;
-        offsets.ReplaySpeedOffset = 9652;
-        offsets.ReplaySpeedDividerOffset = 9656;
-        offsets.PauseOffset = 9660;
-        offsets.StatusCodeOffset = 9608;
-        offsets.TurboModeOffset = 0xCA3E74; // Game.dll+CA3E74 // no effect
+        offsets.ReplayLengthOffset =        0x0A94;  // diff: +400 (0x190) //
+        offsets.TempReplayPathOffset =      0x0FEC; // diff: +592 (0x250) for rest
+        offsets.ReplayPositionOffset =      0x1F70;
+        offsets.ReplaySpeedOffset =         0x25B4;
+        offsets.ReplaySpeedDividerOffset =  0x25B8;
+        offsets.PauseOffset =               0x25BC;
+        offsets.StatusCodeOffset =          0x2588;
+        // Game.dll offsets
+        offsets.TurboModeOffset =           0xCA3E74; // Game.dll+CA3E74 // no effect for 1.28.2
         ReplayManager.RegisterVersionData("1.28", offsets);
 
         // 1.27.X
-        offsets.ReplayLengthOffset = 2316;  // diff: +8 for everything
-        offsets.TempReplayPathOffset = 3492;
-        offsets.ReplayPositionOffset = 7464;
-        offsets.ReplaySpeedOffset = 9068;
-        offsets.ReplaySpeedDividerOffset = 9072;
-        offsets.PauseOffset = 9076;
-        offsets.StatusCodeOffset = 9024; //  
-        offsets.TurboModeOffset = 0xCD5E74; // Game.dll+CD5E74
+        offsets.ReplayLengthOffset =        0x090C;  // diff: +8 (0x8) for everything
+        offsets.TempReplayPathOffset =      0x0DA4;
+        offsets.ReplayPositionOffset =      0x1D28;
+        offsets.ReplaySpeedOffset =         0x236C;
+        offsets.ReplaySpeedDividerOffset =  0x2370;
+        offsets.PauseOffset =               0x2374;
+        offsets.StatusCodeOffset =          0x2340;
+        // Game.dll offsets
+        offsets.TurboModeOffset =           0xCD5E74; // Game.dll+CD5E74
         ReplayManager.RegisterVersionData("1.27", offsets); 
 
         // 1.26.X
-        offsets.ReplayLengthOffset = 2308;  // @note it had 2900 after decompilling for some reason
-        offsets.TempReplayPathOffset = 3484; 
-        offsets.ReplayPositionOffset = 7456;
-        offsets.ReplaySpeedOffset = 9060;
-        offsets.ReplaySpeedDividerOffset = 9064;
-        offsets.PauseOffset = 9068;
-        offsets.StatusCodeOffset = 9016;
-        offsets.TurboModeOffset = 0xA9E7A4; // Game.dll+A9E7A4
+        offsets.ReplayLengthOffset =        0x0904;  // @note it had 2900 after decompilling for some reason
+        offsets.TempReplayPathOffset =      0x0D9C;
+        offsets.ReplayPositionOffset =      0x1D20;
+        offsets.ReplaySpeedOffset =         0x2364;
+        offsets.ReplaySpeedDividerOffset =  0x2368;
+        offsets.PauseOffset =               0x236C;
+        offsets.StatusCodeOffset =          0x2338;
+        // Game.dll offsets
+        offsets.TurboModeOffset =           0xA9E7A4; // Game.dll+A9E7A4
         ReplayManager.RegisterVersionData("1.26", offsets);
 
         /* 
@@ -199,6 +204,7 @@ namespace ReplaySeeker
         offsets.ReplaySpeedDividerOffset = RSCFG.Items["CustomOffsets"].GetIntValue("ReplaySpeedDividerOffset", offsets.ReplaySpeedDividerOffset);
         offsets.PauseOffset = RSCFG.Items["CustomOffsets"].GetIntValue("PauseOffset", offsets.PauseOffset);
         offsets.StatusCodeOffset = RSCFG.Items["CustomOffsets"].GetIntValue("StatusCodeOffset", offsets.StatusCodeOffset);
+        // Game.dll offsets
         offsets.TurboModeOffset = RSCFG.Items["CustomOffsets"].GetIntValue("TurboModeOffset", offsets.TurboModeOffset);
         ReplayManager.RegisterVersionData("Custom", offsets);
         this.updateVersionsList();
@@ -213,6 +219,8 @@ namespace ReplaySeeker
             MessageBox.Show("Current build is corrupted - no offsets settings found. Exiting.");
             Application.Exit();
         }
+        this.versionCBox.Items.Clear();
+        this.versionCBox.Items.Add("Auto");
         foreach (String version in versions_list)
         {
             this.versionCBox.Items.Add(version);
@@ -246,8 +254,9 @@ namespace ReplaySeeker
         this.label3 = new System.Windows.Forms.Label();
         this.replaySpeedLabel = new System.Windows.Forms.Label();
         this.groupBox1 = new System.Windows.Forms.GroupBox();
+        this.label11 = new System.Windows.Forms.Label();
         this.versionCBox = new System.Windows.Forms.ComboBox();
-        this.rescanButton = new System.Windows.Forms.Button();
+        this.stopScanButton = new System.Windows.Forms.Button();
         this.scanProgressBar = new System.Windows.Forms.ProgressBar();
         this.pluginsLV = new System.Windows.Forms.ListView();
         this.pluginNameColumn = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
@@ -278,7 +287,7 @@ namespace ReplaySeeker
         this.playbackSpeedTextBox = new System.Windows.Forms.TextBox();
         this.label10 = new System.Windows.Forms.Label();
         this.turboCB = new System.Windows.Forms.CheckBox();
-        this.label11 = new System.Windows.Forms.Label();
+        this.replayDetectTimer = new System.Windows.Forms.Timer(this.components);
         this.panel1.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)(this.seekerPB)).BeginInit();
         ((System.ComponentModel.ISupportInitialize)(this.speedTrackBar)).BeginInit();
@@ -414,7 +423,7 @@ namespace ReplaySeeker
         // 
         this.groupBox1.Controls.Add(this.label11);
         this.groupBox1.Controls.Add(this.versionCBox);
-        this.groupBox1.Controls.Add(this.rescanButton);
+        this.groupBox1.Controls.Add(this.stopScanButton);
         this.groupBox1.Controls.Add(this.scanProgressBar);
         this.groupBox1.Controls.Add(this.pluginsLV);
         this.groupBox1.Controls.Add(this.syncSolutionLabel);
@@ -431,6 +440,17 @@ namespace ReplaySeeker
         this.groupBox1.TabIndex = 9;
         this.groupBox1.TabStop = false;
         // 
+        // label11
+        // 
+        this.label11.AutoSize = true;
+        this.label11.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+        this.label11.ForeColor = System.Drawing.Color.LightGray;
+        this.label11.Location = new System.Drawing.Point(6, 43);
+        this.label11.Name = "label11";
+        this.label11.Size = new System.Drawing.Size(75, 13);
+        this.label11.TabIndex = 25;
+        this.label11.Text = "W3 version:";
+        // 
         // versionCBox
         // 
         this.versionCBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
@@ -441,18 +461,18 @@ namespace ReplaySeeker
         this.versionCBox.TabIndex = 24;
         this.versionCBox.SelectedIndexChanged += new System.EventHandler(this.versionCBox_SelectedIndexChanged);
         // 
-        // rescanButton
+        // stopScanButton
         // 
-        this.rescanButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
-        this.rescanButton.ForeColor = System.Drawing.Color.Red;
-        this.rescanButton.Location = new System.Drawing.Point(217, 11);
-        this.rescanButton.Name = "rescanButton";
-        this.rescanButton.Size = new System.Drawing.Size(57, 23);
-        this.rescanButton.TabIndex = 23;
-        this.rescanButton.Text = "retry";
-        this.rescanButton.UseVisualStyleBackColor = true;
-        this.rescanButton.Visible = false;
-        this.rescanButton.Click += new System.EventHandler(this.rescanButton_Click);
+        this.stopScanButton.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+        this.stopScanButton.ForeColor = System.Drawing.Color.Red;
+        this.stopScanButton.Location = new System.Drawing.Point(193, 11);
+        this.stopScanButton.Name = "stopScanButton";
+        this.stopScanButton.Size = new System.Drawing.Size(81, 23);
+        this.stopScanButton.TabIndex = 23;
+        this.stopScanButton.Text = "Stop scan";
+        this.stopScanButton.UseVisualStyleBackColor = true;
+        this.stopScanButton.Visible = false;
+        this.stopScanButton.Click += new System.EventHandler(this.stopScanButton_Click);
         // 
         // scanProgressBar
         // 
@@ -778,16 +798,10 @@ namespace ReplaySeeker
         this.turboCB.Text = "Turbo";
         this.turboCB.UseVisualStyleBackColor = true;
         // 
-        // label11
+        // replayDetectTimer
         // 
-        this.label11.AutoSize = true;
-        this.label11.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
-        this.label11.ForeColor = System.Drawing.Color.LightGray;
-        this.label11.Location = new System.Drawing.Point(6, 43);
-        this.label11.Name = "label11";
-        this.label11.Size = new System.Drawing.Size(75, 13);
-        this.label11.TabIndex = 25;
-        this.label11.Text = "W3 version:";
+        this.replayDetectTimer.Interval = 1000;
+        this.replayDetectTimer.Tick += new System.EventHandler(this.replayDetectTimer_Tick);
         // 
         // MainForm
         // 
@@ -933,57 +947,100 @@ namespace ReplaySeeker
     private void war3detectTimer_Tick(object sender, EventArgs e)
     {
 
-      Process war3Process = (Process) null;
+      this.war3Process = (Process) null;
       foreach (Process process in Process.GetProcesses())
       {
         if (this.rgWar3processName.IsMatch(process.ProcessName))
         {
-          war3Process = process;
+          this.war3Process = process;
           break;
         }
       }
       if (this.isHooked)
       {
-        if (war3Process != null && !ReplayManager.manager.IsAbandoned)
+          if (this.replayDetectTimer.Enabled)
+          {
+              this.replayDetectTimer.Stop();
+          }
+        if (this.war3Process != null && !ReplayManager.manager.IsAbandoned)
           return;
+        ReplayManager.manager = (ReplayManager)null;
         this.UnHook();
       }
       else
       {
-          if (war3Process == null || ReplayManager.currentVersion == null)
+          if (this.war3Process == null || ReplayManager.currentVersion == null || this.replayDetectTimer.Enabled)
               return;
-          this.statusLabel.Text = "Scanning memory...";
-          this.scanProgressBar.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
-          if (ReplayManager.manager == null)
-          {
-              if (!ReplayManager.isScanning)
-              {
-                  if (!ReplayManager.isScanFailed) {
-                      this.versionCBox.Enabled = false;
-                      ReplayManager.InitiateScan(war3Process, new ProcessMemoryReaderProgress(this.MemoryManager_MemoryScanProgress));
-                  } else {
-                      this.versionCBox.Enabled = true;
-                      this.statusLabel.Text = "I sense no replay";
-                      this.scanProgressBar.Visible = false;
-                      this.rescanButton.Visible = true;
-                  }
-              }
-              else
-              {
-                  this.versionCBox.Enabled = false;
-              }
-              return;
-          }
-
-          if (ReplayManager.GameDllBase > 0 && ReplayManager.TurboModeOffset != 0)
-          {
-              this.turboCB.Visible = true;
-          }
-          this.Hook(war3Process);
+          this.replayDetectTimer.Start();
       }
     }
 
-    
+    private void replayDetectTimer_Tick(object sender, EventArgs e)
+    {
+        if (this.war3Process == null || this.isHooked) 
+            return;
+        this.scanProgressBar.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
+        if (ReplayManager.manager == null)
+        {
+            if (ReplayManager.isScanStopped)
+            {
+                ReplayManager.manager = (ReplayManager)null;
+                this.statusLabel.Text = "Change version, please";
+            }
+            else if (!ReplayManager.isScanning)
+            {
+                this.statusLabel.Text = "Scanning memory...";
+                this.versionCBox.Enabled = false;
+                ReplayManager.InitiateScan(this.war3Process, new ProcessMemoryReaderProgress(this.MemoryManager_MemoryScanProgress));
+            }
+            this.stopScanButton.Visible = true;
+            return;
+        }
+        else
+        {
+            this.replayDetectTimer.Stop();
+            if ((string)this.versionCBox.SelectedItem == "Auto")
+            {
+                int CBoxVersionPosition = this.versionCBox.FindStringExact(ReplayManager.currentVersion);
+                // @todo Exception on incorrect element here?
+                this.versionCBox.SelectedIndex = CBoxVersionPosition;
+            }
+           
+
+            
+            this.Hook(this.war3Process);
+        }
+
+        if (ReplayManager.GameDllBase > 0 && ReplayManager.TurboModeOffset != 0)
+        {
+            this.turboCB.Visible = true;
+        }
+    }
+
+    private void stopScanButton_Click(object sender, EventArgs e)
+    {
+        if (ReplayManager.isScanStopped)
+        {
+            // scan is paused to change version, the button label will be 'Stop scan'; current is 'Rescan'
+            this.versionCBox.Enabled = false;
+            this.statusLabel.Text = "Initiating rescan...";
+            this.stopScanButton.Text = "Stop scan";
+            ReplayManager.isScanStopped = false;
+            this.war3detectTimer.Start();
+        }
+        else
+        {
+            // scan is running, the button label will be 'Rescan'; current is 'Stop scan'
+            this.versionCBox.Enabled = true;
+            this.statusLabel.Text = "Stopping the scan";
+            this.stopScanButton.Text = "Rescan";
+            this.scanProgressBar.Visible = true;
+            this.war3detectTimer.Stop();
+            ReplayManager.isScanStopped = true;
+        }
+        this.stopScanButton.Visible = false;
+        this.Update();
+    }
 
     public void MemoryManager_MemoryScanProgress(float progress)
     {
@@ -1014,6 +1071,7 @@ namespace ReplaySeeker
       this.versionCBox.Enabled = false;
       this.MemoryManager_MemoryScanProgress(0);
       this.scanProgressBar.Visible = false;
+      this.stopScanButton.Visible = false;
       this.seekerPB.Image = (Image) ReplaySeeker.Properties.Resources.BTNThirst;
       this.statusLabel.Text = "Found a replay!";
       this.speedTrackBar.Enabled = true;
@@ -1307,6 +1365,8 @@ namespace ReplaySeeker
     private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
     {
       this.stop_sync();
+      ReplayManager.isScanStopped = true;
+      
       string savedVersion = RSCFG.Items["Options"].GetStringValue("WarcraftVersion", "");
       RSCFG.Items["Options"]["WarcraftVersion"] = (string)this.versionCBox.SelectedItem;
       RSCFG.Items["Options"]["TurboMode"] = (object)(this.turboCB.Checked ? 1 : 0);
@@ -1356,15 +1416,6 @@ namespace ReplaySeeker
     private void desiredTimeTextBox_TextChanged(object sender, EventArgs e)
     {
       this.parseDesiredTime();
-    }
-
-    private void rescanButton_Click(object sender, EventArgs e)
-    {
-        this.versionCBox.Enabled = false;
-        ReplayManager.isScanFailed = false;
-        this.rescanButton.Visible = false;
-        this.scanProgressBar.Visible = true;
-        this.statusLabel.Text = "Initiating rescan...";
     }
 
     private void versionCBox_SelectedIndexChanged(object sender, EventArgs e)
