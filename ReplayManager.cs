@@ -288,7 +288,7 @@ namespace ReplaySeeker
                 return;
             }
 
-            while (memoryBlockLocation < 2147418112 && !ReplayManager.isScanStopped)
+            while (memoryBlockLocation < 2147418112 && !flag && !ReplayManager.isScanStopped && !process.HasExited)
             {
                 if (memoryBlockLocation % 3145728 == 0 && memoryScanProgress != null)
                 {
@@ -308,11 +308,13 @@ namespace ReplaySeeker
                    if (pReader.ReadProcessInt32(memoryBlockLocation + LocalStatusCodeOffset) == ReplayManager.STATUS_LOOP)
                    {
                        flag = (int)pReader.ReadProcessByte(memoryBlockLocation + LocalTempReplayPathOffset) == 0;
-                       if (flag && ReplayManager.currentVersion == "Auto")
+                       if (flag)
                        {
-                           ReplayManager.updateCurrentVersion(entry.Key);
+                           if (ReplayManager.currentVersion == "Auto") {
+                               ReplayManager.updateCurrentVersion(entry.Key);
+                           }
+                           break;
                        }
-                       break;
                    }
                 }
                 
@@ -320,9 +322,9 @@ namespace ReplaySeeker
                 iterations++;
             }
             pReader.CloseHandle();
-            
 
-            if (flag)
+
+            if (flag && !process.HasExited)
             {
                 ProcessModuleCollection modules = process.Modules;
                 foreach (ProcessModule module in modules)

@@ -944,32 +944,59 @@ namespace ReplaySeeker
       RSCFG.Items["Options"]["DoneSound"] = (object) this.doneSoundCmbB.SelectedIndex;
     }
 
+    private void war3process_exited(object sender, EventArgs e)
+    {
+        this.replayDetectTimer.Stop();
+        this.war3Process = (Process)null;
+        this.UnHook();
+    }
+
     private void war3detectTimer_Tick(object sender, EventArgs e)
     {
 
-      this.war3Process = (Process) null;
+      Process had_process = this.war3Process;
+      bool processFound = false;
       foreach (Process process in Process.GetProcesses())
       {
         if (this.rgWar3processName.IsMatch(process.ProcessName))
         {
           this.war3Process = process;
+          processFound = true;
           break;
         }
       }
+      if (!processFound)
+      {
+          this.war3Process = (Process)null;
+      }
+      else if (had_process == null || (this.war3Process.Id != had_process.Id))
+      {
+          // add an ExitHandler
+          this.war3Process.EnableRaisingEvents = true;
+          this.war3Process.Exited += new EventHandler(this.war3process_exited);
+      }
+      
+         
       if (this.isHooked)
       {
           if (this.replayDetectTimer.Enabled)
           {
               this.replayDetectTimer.Stop();
           }
-        if (this.war3Process != null && !ReplayManager.manager.IsAbandoned)
-          return;
+          if (processFound && !ReplayManager.manager.IsAbandoned)
+            return;
         ReplayManager.manager = (ReplayManager)null;
         this.UnHook();
       }
       else
       {
-          if (this.war3Process == null || ReplayManager.currentVersion == null || this.replayDetectTimer.Enabled)
+          if (!processFound)
+          {
+              if (had_process != null)
+                  this.UnHook();
+              return;
+          }
+          if  (ReplayManager.currentVersion == null || this.replayDetectTimer.Enabled)
               return;
           this.replayDetectTimer.Start();
       }
@@ -985,7 +1012,7 @@ namespace ReplaySeeker
             if (ReplayManager.isScanStopped)
             {
                 ReplayManager.manager = (ReplayManager)null;
-                this.statusLabel.Text = "Change version, please";
+                this.statusLabel.Text = "Select a version, please";
             }
             else if (!ReplayManager.isScanning)
             {
@@ -1005,8 +1032,6 @@ namespace ReplaySeeker
                 // @todo Exception on incorrect element here?
                 this.versionCBox.SelectedIndex = CBoxVersionPosition;
             }
-           
-
             
             this.Hook(this.war3Process);
         }
@@ -1026,7 +1051,7 @@ namespace ReplaySeeker
             this.statusLabel.Text = "Initiating rescan...";
             this.stopScanButton.Text = "Stop scan";
             ReplayManager.isScanStopped = false;
-            this.war3detectTimer.Start();
+            this.replayDetectTimer.Start();
         }
         else
         {
@@ -1035,7 +1060,7 @@ namespace ReplaySeeker
             this.statusLabel.Text = "Stopping the scan";
             this.stopScanButton.Text = "Rescan";
             this.scanProgressBar.Visible = true;
-            this.war3detectTimer.Stop();
+            this.replayDetectTimer.Stop();
             ReplayManager.isScanStopped = true;
         }
         this.stopScanButton.Visible = false;
@@ -1098,7 +1123,12 @@ namespace ReplaySeeker
     {
       this.MemoryManager_MemoryScanProgress(0);
       this.replayUpdateTimer.Stop();
+      if (this.replayDetectTimer.Enabled)
+      {
+          this.replayDetectTimer.Stop();
+      }
       this.versionCBox.Enabled = true;
+      this.stopScanButton.Visible = false;
       this.isHooked = false;
       this.seekerPB.Image = (Image) ReplaySeeker.Properties.Resources.DISBTNThirst;
       this.scanProgressBar.Visible = true;
