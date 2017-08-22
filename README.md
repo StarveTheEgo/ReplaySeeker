@@ -7,6 +7,18 @@ I can delete this project if authors dont want it to be here. But we really need
 
 Somewhat changelog:
 
+## 23.08.2017
+**Still beta:**
+
+
+- Added turbo mode support for known versions (not sure about 1.28, cannot make a good test for it; investigating)
+- Changed some calls to thread-safe ones
+- Added simple version 'autodetect'
+- Added known process names list, so no need to specify it anymore (in most cases)
+- No need to restart ReplaySeeker for another replay/warcraft version anymore.
+- Reworked 'rescan' button:
+No more needed to click it to restart scan process. It will always do scan until it finds replay.
+There are 'stop scan' button to stop it and get able to select another version if it is needed.
 
 ## 17.08.2017
 **Still beta:**
