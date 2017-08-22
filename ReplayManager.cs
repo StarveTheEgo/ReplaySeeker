@@ -37,7 +37,7 @@ namespace ReplaySeeker
         public static int ReplaySpeedDividerOffset { get; private set; }
         public static int PauseOffset { get; private set; }
         public static int StatusCodeOffset { get; private set; }
-        public static int TurboModeOffset { get; private set; } //= 1873326436; // did not find yet.
+        public static int TurboModeOffset { get; private set; }
         public static readonly int STATUS_NONE = 1313820229;
         public static readonly int STATUS_LOOP = 1280266064;
         
@@ -208,7 +208,7 @@ namespace ReplaySeeker
             }
             set
             {
-                Win32Msg.ShowWindow(this.pReader.ReadProcess.MainWindowHandle, value ? 6 : 9);
+                Win32Msg.ShowWindow(this.pReader.ReadProcess.MainWindowHandle, value ? Win32Msg.SW_MINIMIZE : Win32Msg.SW_RESTORE);
             }
         }
 
@@ -317,7 +317,10 @@ namespace ReplaySeeker
                        }
                    }
                 }
-                
+                if (flag)
+                {
+                    break;
+                }
                 memoryBlockLocation += 65536;
                 iterations++;
             }
@@ -352,7 +355,7 @@ namespace ReplaySeeker
 
         public void Activate(bool flag)
         {
-            Win32Msg.SendMessage(this.pReader.ReadProcess.MainWindowHandle, 6, flag ? 1 : 0, 0);
+            Win32Msg.SendMessage(this.pReader.ReadProcess.MainWindowHandle, Win32Msg.WM_ACTIVATE, flag ? Win32Msg.WA_ACTIVE : Win32Msg.WA_INACTIVE, 0);
         }
 
         public void BringWindowToForeground()

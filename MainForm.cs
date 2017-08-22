@@ -2,9 +2,11 @@
 // Type: ReplaySeeker.MainForm
 // Assembly: ReplaySeeker, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
 using ProcessMemoryReaderLib;
+
 using ReplaySeeker.Core.Resources;
 using ReplaySeeker.Plugins;
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -20,6 +22,7 @@ using System.Windows.Forms;
 
 namespace ReplaySeeker
 {
+  using ReplaySeeker.Core; 
   public class MainForm : Form, IReplaySeekerCore
   {
     private PluginCollection Plugins = new PluginCollection();
@@ -67,7 +70,7 @@ namespace ReplaySeeker
     private CheckBox turboCB;
     private bool isHooked;
     private bool isSpeedChanging;
-    private Regex rgWar3processName;
+    private Regex[] rgWar3processNames;
     private Thread syncThread;
     private ProgressBar scanProgressBar;
     private Button stopScanButton;
@@ -129,7 +132,7 @@ namespace ReplaySeeker
 
     public MainForm()
     {
-      Control.CheckForIllegalCrossThreadCalls = false;
+      //Control.CheckForIllegalCrossThreadCalls = false;
      
       this.InitializeComponent();
       this.InitiateOffsetsData();
@@ -144,7 +147,13 @@ namespace ReplaySeeker
           this.versionCBox.SelectedIndex = savedVersionIndex;
       }
       this.turboCB.Checked = RSCFG.Items["Options"].GetIntValue("TurboMode", 0) == 1;
-      this.rgWar3processName = new Regex(RSCFG.Items["Options"].GetStringValue("ProcessName", "war3").Replace("*", ".*"), RegexOptions.IgnoreCase);
+      //this.rgWar3processName = new Regex(RSCFG.Items["Options"].GetStringValue("ProcessName", "war3").Replace("*", ".*"), RegexOptions.IgnoreCase);
+      string[] strArray = RSCFG.Items["Options"].GetStringValue("ProcessName", "war3,War3,Warcraft III,Frozen Throne").Split(',');
+      this.rgWar3processNames = new Regex[strArray.Length];
+      for (int index = 0; index < strArray.Length; ++index)
+          this.rgWar3processNames[index] = new Regex(strArray[index].Replace("*", ".*"), RegexOptions.IgnoreCase);
+
+
       this.LoadPlugins();
       this.war3detectTimer.Start();
     }
@@ -800,7 +809,7 @@ namespace ReplaySeeker
         // 
         // replayDetectTimer
         // 
-        this.replayDetectTimer.Interval = 1000;
+        this.replayDetectTimer.Interval = 500;
         this.replayDetectTimer.Tick += new System.EventHandler(this.replayDetectTimer_Tick);
         // 
         // MainForm
@@ -827,6 +836,7 @@ namespace ReplaySeeker
         this.Controls.Add(this.currentPositionTrackBar);
         this.Controls.Add(this.panel1);
         this.Controls.Add(this.menuStrip);
+        this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedToolWindow;
         this.MainMenuStrip = this.menuStrip;
         this.MaximizeBox = false;
         this.Name = "MainForm";
@@ -944,9 +954,14 @@ namespace ReplaySeeker
       RSCFG.Items["Options"]["DoneSound"] = (object) this.doneSoundCmbB.SelectedIndex;
     }
 
-    private void war3process_exited(object sender, EventArgs e)
+    private void OnWar3process_Exit(object sender, EventArgs e)
     {
-        this.replayDetectTimer.Stop();
+        if (this.replayDetectTimer.Enabled)
+        {
+            this.replayDetectTimer.Stop();
+        }
+        ReplayManager.isScanStopped = false;
+        ReplayManager.manager = (ReplayManager)null;
         this.war3Process = (Process)null;
         this.UnHook();
     }
@@ -955,47 +970,46 @@ namespace ReplaySeeker
     {
 
       Process had_process = this.war3Process;
-      bool processFound = false;
-      foreach (Process process in Process.GetProcesses())
+      if (this.war3Process == null)
       {
-        if (this.rgWar3processName.IsMatch(process.ProcessName))
-        {
-          this.war3Process = process;
-          processFound = true;
-          break;
-        }
+          bool processFound = false;
+          foreach (Process process in Process.GetProcesses())
+          {
+              for (int index = 0; index < this.rgWar3processNames.Count(); ++index)
+              {
+                  if (this.rgWar3processNames[index].IsMatch(process.ProcessName))
+                  {
+                      this.war3Process = process;
+                      processFound = true;
+                      break;
+                  }
+              }
+              if (processFound)
+                  break;
+          }
+          if (processFound && (had_process == null || (this.war3Process.Id != had_process.Id)))
+          {
+              // add an ExitHandler
+              this.war3Process.EnableRaisingEvents = true;
+              this.war3Process.Exited += new EventHandler(this.OnWar3process_Exit);
+          }
       }
-      if (!processFound)
-      {
-          this.war3Process = (Process)null;
-      }
-      else if (had_process == null || (this.war3Process.Id != had_process.Id))
-      {
-          // add an ExitHandler
-          this.war3Process.EnableRaisingEvents = true;
-          this.war3Process.Exited += new EventHandler(this.war3process_exited);
-      }
-      
          
       if (this.isHooked)
       {
-          if (this.replayDetectTimer.Enabled)
-          {
-              this.replayDetectTimer.Stop();
-          }
-          if (processFound && !ReplayManager.manager.IsAbandoned)
+          if (this.war3Process != null && !ReplayManager.manager.IsAbandoned)
             return;
         ReplayManager.manager = (ReplayManager)null;
         this.UnHook();
       }
       else
       {
-          if (!processFound)
+          /*if (this.war3Process == null)
           {
               if (had_process != null)
                   this.UnHook();
               return;
-          }
+          }*/
           if  (ReplayManager.currentVersion == null || this.replayDetectTimer.Enabled)
               return;
           this.replayDetectTimer.Start();
@@ -1060,32 +1074,43 @@ namespace ReplaySeeker
             this.statusLabel.Text = "Stopping the scan";
             this.stopScanButton.Text = "Rescan";
             this.scanProgressBar.Visible = true;
+            // Unreliably block
+            // @todo: make it more clear; it should stop current scan and ~instantly start new one
             this.replayDetectTimer.Stop();
             ReplayManager.isScanStopped = true;
+            this.replayDetectTimer.Start();
         }
         this.stopScanButton.Visible = false;
         this.Update();
     }
-
+    
     public void MemoryManager_MemoryScanProgress(float progress)
     {
-        int val = 0;
-        if ((double)progress >= 0.0)
+        if (this.scanProgressBar.InvokeRequired)
         {
-            val = (int)((double)this.scanProgressBar.Maximum * (double)progress);
-        }
-        // To get around this animation, we need to move the progress bar backwards.
-        if (val == this.scanProgressBar.Maximum)
-        {
-            // Special case (can't set value > Maximum).
-            this.scanProgressBar.Value = val;           // Set the value
-            this.scanProgressBar.Value = val - 1;       // Move it backwards
+            ProcessMemoryReaderProgress d = new ProcessMemoryReaderProgress(MemoryManager_MemoryScanProgress);
+            this.Invoke(d, new object[] { progress });
         }
         else
         {
-            this.scanProgressBar.Value = val + 1;       // Move past
+            int val = 0;
+            if ((double)progress >= 0.0)
+            {
+                val = (int)((double)this.scanProgressBar.Maximum * (double)progress);
+            }
+            // To get around this animation, we need to move the progress bar backwards.
+            if (val == this.scanProgressBar.Maximum)
+            {
+                // Special case (can't set value > Maximum).
+                this.scanProgressBar.Value = val;           // Set the value
+                this.scanProgressBar.Value = val - 1;       // Move it backwards
+            }
+            else
+            {
+                this.scanProgressBar.Value = val + 1;       // Move past
+            }
+            this.scanProgressBar.Value = val;
         }
-        this.scanProgressBar.Value = val; 
     }
 
 
@@ -1122,34 +1147,50 @@ namespace ReplaySeeker
     private void UnHook()
     {
       this.MemoryManager_MemoryScanProgress(0);
-      this.replayUpdateTimer.Stop();
-      if (this.replayDetectTimer.Enabled)
-      {
-          this.replayDetectTimer.Stop();
-      }
-      this.versionCBox.Enabled = true;
-      this.stopScanButton.Visible = false;
+
       this.isHooked = false;
-      this.seekerPB.Image = (Image) ReplaySeeker.Properties.Resources.DISBTNThirst;
-      this.scanProgressBar.Visible = true;
-      this.scanProgressBar.Style = System.Windows.Forms.ProgressBarStyle.Marquee;
-      this.statusLabel.Text = "Waiting for process...";
-      this.speedTrackBar.Value = 0;
-      this.speedTrackBar.Enabled = false;
-      this.replaySpeedLabel.Text = "";
-      this.playbackSpeedTextBox.Text = "";
+
+      this.replayUpdateTimer.Stop();
+      this.replayDetectTimer.Stop();
+
+      this.versionCBox.SynchronizedInvoke(() => this.versionCBox.Enabled = true );
+      this.stopScanButton.SynchronizedInvoke(() => this.stopScanButton.Visible = false);
+      this.seekerPB.SynchronizedInvoke(() => this.seekerPB.Image = (Image)ReplaySeeker.Properties.Resources.DISBTNThirst );
+
+       this.scanProgressBar.SynchronizedInvoke(delegate()
+       {
+            this.scanProgressBar.Visible = true;
+            this.scanProgressBar.Style = System.Windows.Forms.ProgressBarStyle.Marquee;
+      });
+      
+
+      this.speedTrackBar.SynchronizedInvoke(delegate()
+      {
+          this.speedTrackBar.Value = 0;
+          this.speedTrackBar.Enabled = false;
+      });
+      this.statusLabel.SynchronizedInvoke(() => this.statusLabel.Text = "Waiting for process...");
+      this.replaySpeedLabel.SynchronizedInvoke(() => this.replaySpeedLabel.Text = "");
+      this.playbackSpeedTextBox.SynchronizedInvoke(() => this.playbackSpeedTextBox.Text = "");
+
+      this.replayStartTimeLabel.SynchronizedInvoke(() => this.replayStartTimeLabel.Text = "");
+      this.replayLengthLabel.SynchronizedInvoke(() => this.replayLengthLabel.Text = "");
+      this.currentTimeTextBox.SynchronizedInvoke(() => this.currentTimeTextBox.Text = "");
+      this.desiredStartTimeLabel.SynchronizedInvoke(() => this.desiredStartTimeLabel.Text = "");
+      this.desiredLengthLabel.SynchronizedInvoke(() => this.desiredLengthLabel.Text = "");
+      this.desiredTimeTextBox.SynchronizedInvoke(() => this.desiredTimeTextBox.Text = "");
+
       this.playbackStopwatch.Reset();
-      this.currentPositionTrackBar.Value = 0;
-      this.replayStartTimeLabel.Text = "";
-      this.replayLengthLabel.Text = "";
-      this.currentTimeTextBox.Text = "";
-      this.desiredPositionTrackBar.Value = 0;
-      this.desiredPositionTrackBar.Maximum = 0;
-      this.desiredPositionTrackBar.Enabled = false;
-      this.desiredStartTimeLabel.Text = "";
-      this.desiredLengthLabel.Text = "";
-      this.desiredTimeTextBox.Text = "";
-      this.desiredTimeTextBox.Enabled = false;
+
+      this.currentPositionTrackBar.SynchronizedInvoke(() => this.currentPositionTrackBar.Value = 0);
+      this.desiredPositionTrackBar.SynchronizedInvoke(delegate()
+      {
+          this.desiredPositionTrackBar.Value = 0;
+          this.desiredPositionTrackBar.Maximum = 0;
+          this.desiredPositionTrackBar.Enabled = false;
+      });
+
+      this.desiredTimeTextBox.SynchronizedInvoke(() => this.desiredTimeTextBox.Enabled = false);
       this.update_sync_solution();
       if (ReplayManager.manager != null)
       {
@@ -1157,7 +1198,7 @@ namespace ReplaySeeker
         ReplayManager.manager.Dispose();
         ReplayManager.manager = null;
       }
-      this.synchronizeB.Enabled = false;
+      this.synchronizeB.SynchronizedInvoke(() => this.synchronizeB.Enabled = false);
     }
 
     private void displayReplaySpeed()
@@ -1194,25 +1235,27 @@ namespace ReplaySeeker
 
     private void update_sync_solution()
     {
+      int desiredPositionValue = this.desiredPositionTrackBar.getValueSafe();
+      int currentPositionValue = this.currentPositionTrackBar.getValueSafe();
       if (!this.isHooked)
       {
-        this.syncSolutionLabel.Text = "";
-        this.synchronizeB.Enabled = false;
+        this.syncSolutionLabel.SynchronizedInvoke(() => this.syncSolutionLabel.Text = "");
+        this.synchronizeB.SynchronizedInvoke(() => this.synchronizeB.Enabled = false);
       }
-      else if (this.desiredPositionTrackBar.Value - 800 > this.currentPositionTrackBar.Value)
+      else if (desiredPositionValue - 800 > currentPositionValue)
       {
-        this.syncSolutionLabel.Text = "Fast Forward";
-        this.synchronizeB.Enabled = true;
+        this.syncSolutionLabel.SynchronizedInvoke(() => this.syncSolutionLabel.Text = "Fast Forward");
+        this.synchronizeB.SynchronizedInvoke(() => this.synchronizeB.Enabled = true);
       }
-      else if (this.desiredPositionTrackBar.Value == this.currentPositionTrackBar.Value || this.desiredPositionTrackBar.Value + 800 > this.currentPositionTrackBar.Value)
+      else if (desiredPositionValue == currentPositionValue || desiredPositionValue + 800 > currentPositionValue)
       {
-        this.syncSolutionLabel.Text = "";
-        this.synchronizeB.Enabled = false;
+        this.syncSolutionLabel.SynchronizedInvoke(() => this.syncSolutionLabel.Text = "");
+        this.synchronizeB.SynchronizedInvoke(() => this.synchronizeB.Enabled = false);
       }
       else
       {
-        this.syncSolutionLabel.Text = "Restart + Fast Forward";
-        this.synchronizeB.Enabled = true;
+        this.syncSolutionLabel.SynchronizedInvoke(() => this.syncSolutionLabel.Text = "Restart + Fast Forward");
+        this.synchronizeB.SynchronizedInvoke(() => this.synchronizeB.Enabled = true);
       }
     }
 
@@ -1309,10 +1352,16 @@ namespace ReplaySeeker
       }
     }
 
+
+
     private void synchronize()
     {
-      this.synchronizeB.Text = "Cancel";
-      if (this.desiredPositionTrackBar.Value < this.currentPositionTrackBar.Value)
+       
+      this.synchronizeB.SynchronizedInvoke(() => this.synchronizeB.Text = "Cancel");
+      //this.synchronizeB.Text = "Cancel";
+
+
+      if (this.desiredPositionTrackBar.getValueSafe() < this.currentPositionTrackBar.getValueSafe())
           ReplayManager.manager.Restart();
       ReplayManager.manager.Activate(true);
       ReplayManager.manager.Paused = false;
@@ -1322,13 +1371,13 @@ namespace ReplaySeeker
       bool flag = true;
       ReplayManager.manager.ReliableCurrentPosition = -1;
       int reliableCurrentPosition;
-      while ((reliableCurrentPosition = ReplayManager.manager.ReliableCurrentPosition) + num2 < this.desiredPositionTrackBar.Value)
+      while ((reliableCurrentPosition = ReplayManager.manager.ReliableCurrentPosition) + num2 < this.desiredPositionTrackBar.getValueSafe())
       {          
         if (num1 == -1)
           num1 = reliableCurrentPosition;
         num2 = reliableCurrentPosition - num1;
         num1 = reliableCurrentPosition;
-        if (flag && reliableCurrentPosition + num2 * 4 >= this.desiredPositionTrackBar.Value)
+        if (flag && reliableCurrentPosition + num2 * 4 >= this.desiredPositionTrackBar.getValueSafe())
         {
           int currentSpeed = ReplayManager.manager.CurrentSpeed;
           if (currentSpeed > 8)
@@ -1356,7 +1405,7 @@ namespace ReplaySeeker
 
     private void play_sync_done()
     {
-      switch (this.doneSoundCmbB.SelectedIndex)
+      switch ((int)RSCFG.Items["Options"]["DoneSound"]) //this.doneSoundCmbB.SelectedIndex
       {
         case 1:
         case 2:
@@ -1384,9 +1433,11 @@ namespace ReplaySeeker
     {
       if (this.syncThread == null)
         return;
+      this.rLetterB.SynchronizedInvoke(() => this.rLetterB.BackColor = Color.Black);
+      this.synchronizeB.SynchronizedInvoke(() => this.synchronizeB.Text = "Synchronize");
       this.syncFlashTimer.Stop();
-      this.rLetterB.BackColor = Color.Black;
-      this.synchronizeB.Text = "Synchronize!";
+      //this.rLetterB.BackColor = Color.Black;
+      //this.synchronizeB.Text = "Synchronize!";
       if (Thread.CurrentThread != this.syncThread)
         this.syncThread.Abort();
       this.syncThread = (Thread) null;
@@ -1400,7 +1451,17 @@ namespace ReplaySeeker
       string savedVersion = RSCFG.Items["Options"].GetStringValue("WarcraftVersion", "");
       RSCFG.Items["Options"]["WarcraftVersion"] = (string)this.versionCBox.SelectedItem;
       RSCFG.Items["Options"]["TurboMode"] = (object)(this.turboCB.Checked ? 1 : 0);
-      RSCFG.Items["Options"]["ProcessName"] = (object) this.rgWar3processName.ToString().Replace(".*", "*");
+
+      string str = "";
+      foreach (Regex offset in this.rgWar3processNames)
+      {
+          if (str.Length != 0)
+              str += ",";
+          str += offset.ToString().Replace(".*", "*");
+      }
+      RSCFG.Items["Options"]["ProcessName"] = (object)str;
+      //RSCFG.Items["Options"]["ProcessName"] = (object) this.rgWar3processNames.ToString().Replace(".*", "*");
+      
 
       /*
        * custom offsets feature, experimental; only one preset atm;
