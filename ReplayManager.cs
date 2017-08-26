@@ -6,12 +6,36 @@ using ProcessMemoryReaderLib;
 using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.Linq;
 using System.Threading;
 using System.Windows.Forms;
 using System.Collections.Generic;
 
+
+public enum Protection : uint
+{
+    PAGE_NOACCESS = 0x01,
+    PAGE_READONLY = 0x02,
+    PAGE_READWRITE = 0x04,
+    PAGE_WRITECOPY = 0x08,
+    PAGE_EXECUTE = 0x10,
+    PAGE_EXECUTE_READ = 0x20,
+    PAGE_EXECUTE_READWRITE = 0x40,
+    PAGE_EXECUTE_WRITECOPY = 0x80,
+    PAGE_GUARD = 0x100,
+    PAGE_NOCACHE = 0x200,
+    PAGE_WRITECOMBINE = 0x400
+}
 namespace ReplaySeeker
 {
+    using ReplaySeeker.Core;
+    public struct PatchData
+    {
+        public int offset;
+        public byte[] original;
+        public byte[] patch; 
+    }
+
     public struct OffsetsData
     {
         public int ReplayLengthOffset;
@@ -23,6 +47,9 @@ namespace ReplaySeeker
         public int StatusCodeOffset;
         // Game.dll offsets
         public int TurboModeOffset;
+
+        public List<PatchData> RendererData;
+
     }
     public class ReplayManager : IReplayManager
     {
@@ -38,6 +65,8 @@ namespace ReplaySeeker
         public static int PauseOffset { get; private set; }
         public static int StatusCodeOffset { get; private set; }
         public static int TurboModeOffset { get; private set; }
+        public static bool RenderPatchEnabled { get; private set;}
+        public static List<PatchData> RendererData { get; private set; }
         public static readonly int STATUS_NONE = 1313820229;
         public static readonly int STATUS_LOOP = 1280266064;
         
@@ -85,6 +114,7 @@ namespace ReplaySeeker
                 ReplayManager.PauseOffset = offsets.PauseOffset;
                 ReplayManager.StatusCodeOffset = offsets.StatusCodeOffset;
                 ReplayManager.TurboModeOffset = offsets.TurboModeOffset;
+                ReplayManager.RendererData = new List<PatchData>(offsets.RendererData);
             } 
            
             ReplayManager.currentVersion = version;
@@ -200,6 +230,46 @@ namespace ReplaySeeker
             }
         }
 
+
+
+        public bool RenderState
+        {
+            get
+            {
+                if (!ReplayManager.RenderPatchEnabled) 
+                    return false;
+                    
+                // @todo: optimize this ugly code when i`ll learn how to
+                // @todo: use IntPtr addresses
+                bool result = true;
+                if (ReplayManager.GameDllBase > 0)
+                {
+                    foreach (var patch_entry in ReplayManager.RendererData) {
+                        // we will compare bytes to original ones
+                        // it it does not match - return false
+                        int address = ReplayManager.GameDllBase + patch_entry.offset;
+                        uint original_length = (uint)patch_entry.original.Length;
+                        if (!Enumerable.SequenceEqual(patch_entry.original, this.pReader.ReadByte(address, original_length)))
+                        {
+                            result = false;
+                            break;
+                        }
+                    }
+                }
+                return result;
+            }
+            set
+            {
+                if (ReplayManager.GameDllBase > 0)
+                {
+                    foreach (var patch_entry in ReplayManager.RendererData) {
+                        this.pReader.WriteByte(ReplayManager.GameDllBase + patch_entry.offset, value ? patch_entry.original : patch_entry.patch, (uint)(value ? patch_entry.original : patch_entry.patch).Length);
+                    }
+                }
+            }
+        }
+
+
         public bool Minimized
         {
             get
@@ -251,6 +321,11 @@ namespace ReplaySeeker
                 (object) process,
                 (object) progressReport
               });
+        }
+
+        public void CheckRenderPatchSupport()
+        {
+            ReplayManager.RenderPatchEnabled = true;
         }
 
         public static void Scanner(object obj)
@@ -373,9 +448,7 @@ namespace ReplaySeeker
             this.BringWindowToForeground();
             Thread.Sleep(500);         
 
-            // i`ve tried some coordinates, did not make it working yet
-            // will investigate someday :D
-            // upd: works for 1600x900, haven`t tested on another resolutions yet
+            // @todo: rework for any resolution
             double num1 = this.pReader.CalculateAbsoluteCoordinateX(1476);
             double num2 = this.pReader.CalculateAbsoluteCoordinateY(864);
             Send.MOUSEINPUT[] mInputs = new Send.MOUSEINPUT[3];
@@ -392,7 +465,7 @@ namespace ReplaySeeker
             Thread.Sleep(ReplayManager.ReplayRestartWaitTime);
             if (minimized)
                 this.Minimized = true;
-            Application.OpenForms[0].Activate();
+            Application.OpenForms[0].SynchronizedInvoke(() => Application.OpenForms[0].Activate() );
             Cursor.Position = position;
         }
 

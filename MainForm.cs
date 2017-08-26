@@ -22,7 +22,8 @@ using System.Windows.Forms;
 
 namespace ReplaySeeker
 {
-  using ReplaySeeker.Core; 
+  using ReplaySeeker.Core;
+  using ReplaySeeker.ProcessMemoryReaderLib;
   public class MainForm : Form, IReplaySeekerCore
   {
     private PluginCollection Plugins = new PluginCollection();
@@ -78,6 +79,7 @@ namespace ReplaySeeker
     private Label label11;
     private System.Windows.Forms.Timer replayDetectTimer;
     private int playbackPosition;
+    private CheckBox renderdisableCB;
     private Process war3Process;
 
     public Form AppForm
@@ -161,6 +163,7 @@ namespace ReplaySeeker
     private void InitiateOffsetsData()
     {
         OffsetsData offsets;
+        PatchData patch;
         // diffs in comments are from 1.26 
 
         // 1.28.X
@@ -170,9 +173,10 @@ namespace ReplaySeeker
         offsets.ReplaySpeedOffset =         0x25B4;
         offsets.ReplaySpeedDividerOffset =  0x25B8;
         offsets.PauseOffset =               0x25BC;
-        offsets.StatusCodeOffset =          0x2588;
+        offsets.StatusCodeOffset = 0x2588; // 0xCE4E74
         // Game.dll offsets
-        offsets.TurboModeOffset =           0xCA3E74; // Game.dll+CA3E74 // no effect for 1.28.2
+        offsets.TurboModeOffset = 0xCA3E74;         // Game.dll+CA3E74 (diff: 0x2056D0)// no effect for 1.28.2
+        offsets.RendererData = new List<PatchData>();
         ReplayManager.RegisterVersionData("1.28", offsets);
 
         // 1.27.X
@@ -184,9 +188,10 @@ namespace ReplaySeeker
         offsets.PauseOffset =               0x2374;
         offsets.StatusCodeOffset =          0x2340;
         // Game.dll offsets
-        offsets.TurboModeOffset =           0xCD5E74; // Game.dll+CD5E74
+        offsets.TurboModeOffset =           0xCD5E74; // Game.dll+CD5E74 (diff: 2376D0)
+        offsets.RendererData = new List<PatchData>();
         ReplayManager.RegisterVersionData("1.27", offsets); 
-
+        
         // 1.26.X
         offsets.ReplayLengthOffset =        0x0904;  // @note it had 2900 after decompilling for some reason
         offsets.TempReplayPathOffset =      0x0D9C;
@@ -197,6 +202,17 @@ namespace ReplaySeeker
         offsets.StatusCodeOffset =          0x2338;
         // Game.dll offsets
         offsets.TurboModeOffset =           0xA9E7A4; // Game.dll+A9E7A4
+
+       
+        offsets.RendererData = new List<PatchData>();
+        patch.offset = 0x526400;
+        patch.original = new byte[] { 0x8B, 0x0D, 0x40, 0xBD };
+        patch.patch = new byte[]    { 0xC3, 0x90, 0x90, 0x90 }; //, 0x90, 0x90
+        offsets.RendererData.Add(patch);
+        patch.offset = 0x50B570;
+        patch.original = new byte[] { 0x6A, 0x01 };
+        patch.patch = new byte[]    { 0xC3, 0x90 };
+        offsets.RendererData.Add(patch);
         ReplayManager.RegisterVersionData("1.26", offsets);
 
         /* 
@@ -215,6 +231,7 @@ namespace ReplaySeeker
         offsets.StatusCodeOffset = RSCFG.Items["CustomOffsets"].GetIntValue("StatusCodeOffset", offsets.StatusCodeOffset);
         // Game.dll offsets
         offsets.TurboModeOffset = RSCFG.Items["CustomOffsets"].GetIntValue("TurboModeOffset", offsets.TurboModeOffset);
+        offsets.RendererData = new List<PatchData>();
         ReplayManager.RegisterVersionData("Custom", offsets);
         this.updateVersionsList();
     }
@@ -297,6 +314,7 @@ namespace ReplaySeeker
         this.label10 = new System.Windows.Forms.Label();
         this.turboCB = new System.Windows.Forms.CheckBox();
         this.replayDetectTimer = new System.Windows.Forms.Timer(this.components);
+        this.renderdisableCB = new System.Windows.Forms.CheckBox();
         this.panel1.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)(this.seekerPB)).BeginInit();
         ((System.ComponentModel.ISupportInitialize)(this.speedTrackBar)).BeginInit();
@@ -777,7 +795,7 @@ namespace ReplaySeeker
         this.playbackSpeedTextBox.BorderStyle = System.Windows.Forms.BorderStyle.None;
         this.playbackSpeedTextBox.Font = new System.Drawing.Font("Verdana", 8.25F, System.Drawing.FontStyle.Bold);
         this.playbackSpeedTextBox.ForeColor = System.Drawing.Color.Khaki;
-        this.playbackSpeedTextBox.Location = new System.Drawing.Point(551, 213);
+        this.playbackSpeedTextBox.Location = new System.Drawing.Point(177, 208);
         this.playbackSpeedTextBox.Name = "playbackSpeedTextBox";
         this.playbackSpeedTextBox.ReadOnly = true;
         this.playbackSpeedTextBox.Size = new System.Drawing.Size(39, 14);
@@ -790,7 +808,7 @@ namespace ReplaySeeker
         this.label10.AutoSize = true;
         this.label10.Font = new System.Drawing.Font("Verdana", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
         this.label10.ForeColor = System.Drawing.Color.Khaki;
-        this.label10.Location = new System.Drawing.Point(386, 213);
+        this.label10.Location = new System.Drawing.Point(12, 209);
         this.label10.Name = "label10";
         this.label10.Size = new System.Drawing.Size(159, 13);
         this.label10.TabIndex = 21;
@@ -800,7 +818,7 @@ namespace ReplaySeeker
         // 
         this.turboCB.Font = new System.Drawing.Font("Verdana", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
         this.turboCB.ForeColor = System.Drawing.Color.Red;
-        this.turboCB.Location = new System.Drawing.Point(592, 209);
+        this.turboCB.Location = new System.Drawing.Point(383, 204);
         this.turboCB.Name = "turboCB";
         this.turboCB.Size = new System.Drawing.Size(65, 24);
         this.turboCB.TabIndex = 23;
@@ -812,10 +830,23 @@ namespace ReplaySeeker
         this.replayDetectTimer.Interval = 500;
         this.replayDetectTimer.Tick += new System.EventHandler(this.replayDetectTimer_Tick);
         // 
+        // renderdisableCB
+        // 
+        this.renderdisableCB.Font = new System.Drawing.Font("Verdana", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
+        this.renderdisableCB.ForeColor = System.Drawing.Color.Red;
+        this.renderdisableCB.Location = new System.Drawing.Point(454, 204);
+        this.renderdisableCB.Name = "renderdisableCB";
+        this.renderdisableCB.Size = new System.Drawing.Size(203, 24);
+        this.renderdisableCB.TabIndex = 24;
+        this.renderdisableCB.Text = "Disable rendering";
+        this.renderdisableCB.UseVisualStyleBackColor = true;
+        this.renderdisableCB.CheckedChanged += new System.EventHandler(this.renderdisableCB_CheckedChanged);
+        // 
         // MainForm
         // 
         this.BackColor = System.Drawing.Color.Black;
         this.ClientSize = new System.Drawing.Size(675, 378);
+        this.Controls.Add(this.renderdisableCB);
         this.Controls.Add(this.turboCB);
         this.Controls.Add(this.playbackSpeedTextBox);
         this.Controls.Add(this.label10);
@@ -1118,6 +1149,7 @@ namespace ReplaySeeker
     {
       if (ReplayManager.manager == null)
         return;
+      ReplayManager.manager.CheckRenderPatchSupport();
       this.versionCBox.Enabled = false;
       this.MemoryManager_MemoryScanProgress(0);
       this.scanProgressBar.Visible = false;
@@ -1141,6 +1173,7 @@ namespace ReplaySeeker
       this.synchronizeB.Enabled = true;
       this.replayUpdateTimer.Start();
       this.isHooked = true;
+      //this.renderdisableCB.Visible = true;
       this.OnReplayFound((IReplayManager) ReplayManager.manager);
     }
 
@@ -1149,7 +1182,7 @@ namespace ReplaySeeker
       this.MemoryManager_MemoryScanProgress(0);
 
       this.isHooked = false;
-
+        
       this.replayUpdateTimer.Stop();
       this.replayDetectTimer.Stop();
 
@@ -1198,6 +1231,8 @@ namespace ReplaySeeker
         ReplayManager.manager.Dispose();
         ReplayManager.manager = null;
       }
+
+     // this.renderdisableCB.SynchronizedInvoke(() => this.renderdisableCB.Visible = false);
       this.synchronizeB.SynchronizedInvoke(() => this.synchronizeB.Enabled = false);
     }
 
@@ -1371,6 +1406,9 @@ namespace ReplaySeeker
       bool flag = true;
       ReplayManager.manager.ReliableCurrentPosition = -1;
       int reliableCurrentPosition;
+
+    //  this.renderdisableCB.SynchronizedInvoke(() => this.renderdisableCB.Enabled = false);
+
       while ((reliableCurrentPosition = ReplayManager.manager.ReliableCurrentPosition) + num2 < this.desiredPositionTrackBar.getValueSafe())
       {          
         if (num1 == -1)
@@ -1396,9 +1434,11 @@ namespace ReplaySeeker
           ReplayManager.manager.Paused = false;
         Thread.Sleep(100);
       }
+
       ReplayManager.manager.Paused = true;
       ReplayManager.manager.Activate(false);
       ReplayManager.manager.CurrentSpeed = 1;
+
       this.play_sync_done();
       this.stop_sync();
     }
@@ -1436,11 +1476,19 @@ namespace ReplaySeeker
       this.rLetterB.SynchronizedInvoke(() => this.rLetterB.BackColor = Color.Black);
       this.synchronizeB.SynchronizedInvoke(() => this.synchronizeB.Text = "Synchronize");
       this.syncFlashTimer.Stop();
-      //this.rLetterB.BackColor = Color.Black;
-      //this.synchronizeB.Text = "Synchronize!";
+      // 6F4B6D55
+      // 6F50B081 (0x0)
+      // 0x000070
       if (Thread.CurrentThread != this.syncThread)
         this.syncThread.Abort();
       this.syncThread = (Thread) null;
+      this.renderdisableCB.SynchronizedInvoke(delegate()
+      {
+          if (this.renderdisableCB.Checked == true)
+          {
+              this.renderdisableCB.Checked = false;
+          }
+      });
     }
 
     private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
@@ -1512,6 +1560,14 @@ namespace ReplaySeeker
     private void versionCBox_SelectedIndexChanged(object sender, EventArgs e)
     {
         this.updateVersion();
+    }
+
+    private void renderdisableCB_CheckedChanged(object sender, EventArgs e)
+    {
+        // ReplayManager.manager.Focused
+        this.war3Process.Suspend();
+        ReplayManager.manager.RenderState = !ReplayManager.manager.RenderState; // !ReplayManager.manager.RenderState;
+        this.war3Process.Resume();
     }
 
   }

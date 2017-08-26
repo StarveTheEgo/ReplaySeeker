@@ -32,7 +32,7 @@ namespace ProcessMemoryReaderLib
       lock (this.lockObject)
       {
         if (this.processUsers == 0)
-          this.m_hProcess = ProcessMemoryReaderApi.OpenProcess(1080U, 1, (uint) this.m_ReadProcess.Id);
+            this.m_hProcess = ProcessMemoryReaderApi.OpenProcess(2035711, 0, (uint)this.m_ReadProcess.Id);
         ++this.processUsers;
       }
     }
@@ -49,7 +49,7 @@ namespace ProcessMemoryReaderLib
 
     public byte[] ReadProcessMemory(int MemoryAddress, uint bytesToRead, out int bytesRead)
     {
-      byte[] buffer = new byte[(int) bytesToRead];
+      byte[] buffer = new byte[bytesToRead];
       ProcessMemoryReaderApi.ReadProcessMemory(this.m_hProcess, MemoryAddress, buffer, bytesToRead, out bytesRead);
       return buffer;
     }
@@ -117,77 +117,108 @@ namespace ProcessMemoryReaderLib
       }
     }
 
-    public byte ReadProcessByte(int MemoryAddress)
+    public byte[] ReadByte(int MemoryAddress, uint bytesToRead)
     {
       try
       {
-        byte num;
-        int lpNumberOfBytesRead;
-        ProcessMemoryReaderApi.ReadProcessMemory(this.m_hProcess, MemoryAddress, out num, 1U, out lpNumberOfBytesRead);
-        return num;
+          this.OpenProcess();
+          int lpNumberOfBytesRead;
+          byte[] buffer = new byte[bytesToRead];
+          ProcessMemoryReaderApi.ReadProcessMemory(this.m_hProcess, MemoryAddress, buffer, bytesToRead, out lpNumberOfBytesRead);
+          this.CloseHandle();
+          return buffer;
       }
       catch
       {
-        return 0;
+          return new byte[0];
       }
-    }
+  }
 
-    public float ReadFloat32(int MemoryAddress)
+  public byte ReadProcessByte(int MemoryAddress)
+  {
+    try
     {
-      try
-      {
-        this.OpenProcess();
-        float num;
-        int lpNumberOfBytesRead;
-        ProcessMemoryReaderApi.ReadProcessMemory(this.m_hProcess, MemoryAddress, out num, 4U, out lpNumberOfBytesRead);
-        this.CloseHandle();
-        return num;
-      }
-      catch
-      {
-        return 0.0f;
-      }
+      byte num;
+      int lpNumberOfBytesRead;
+      ProcessMemoryReaderApi.ReadProcessMemory(this.m_hProcess, MemoryAddress, out num, 1U, out lpNumberOfBytesRead);
+      return num;
     }
-
-    public float ReadProcessFloat32(int MemoryAddress)
+    catch
     {
-      try
-      {
-        float num;
-        int lpNumberOfBytesRead;
-        ProcessMemoryReaderApi.ReadProcessMemory(this.m_hProcess, MemoryAddress, out num, 4U, out lpNumberOfBytesRead);
-        return num;
-      }
-      catch
-      {
-        return 0.0f;
-      }
+      return 0;
     }
+  }
 
-    public void WriteInt32(int MemoryAddress, int value)
+  public float ReadFloat32(int MemoryAddress)
+  {
+    try
     {
-      try
-      {
-        this.OpenProcess();
-        int lpNumberOfBytesWritten;
-        ProcessMemoryReaderApi.WriteProcessMemory(this.m_hProcess, MemoryAddress, ref value, 4U, out lpNumberOfBytesWritten);
-        this.CloseHandle();
-      }
-      catch
-      {
-      }
+      this.OpenProcess();
+      float num;
+      int lpNumberOfBytesRead;
+      ProcessMemoryReaderApi.ReadProcessMemory(this.m_hProcess, MemoryAddress, out num, 4U, out lpNumberOfBytesRead);
+      this.CloseHandle();
+      return num;
     }
-
-    public void WriteProcessInt32(int MemoryAddress, int value)
+    catch
     {
-      try
-      {
-        int lpNumberOfBytesWritten;
-        ProcessMemoryReaderApi.WriteProcessMemory(this.m_hProcess, MemoryAddress, ref value, 4U, out lpNumberOfBytesWritten);
-      }
-      catch
-      {
-      }
+      return 0.0f;
+    }
+  }
+
+  public float ReadProcessFloat32(int MemoryAddress)
+  {
+    try
+    {
+      float num;
+      int lpNumberOfBytesRead;
+      ProcessMemoryReaderApi.ReadProcessMemory(this.m_hProcess, MemoryAddress, out num, 4U, out lpNumberOfBytesRead);
+      return num;
+    }
+    catch
+    {
+      return 0.0f;
+    }
+  }
+
+  public void WriteInt32(int MemoryAddress, int value)
+  {
+    try
+    {
+      this.OpenProcess();
+      int lpNumberOfBytesWritten;
+      ProcessMemoryReaderApi.WriteProcessMemory(this.m_hProcess, MemoryAddress, ref value, 4U, out lpNumberOfBytesWritten);
+      this.CloseHandle();
+    }
+    catch
+    {
+    }
+  }
+
+  public void WriteProcessInt32(int MemoryAddress, int value)
+  {
+    try
+    {
+      int lpNumberOfBytesWritten;
+      ProcessMemoryReaderApi.WriteProcessMemory(this.m_hProcess, MemoryAddress, ref value, 4U, out lpNumberOfBytesWritten);
+    }
+    catch
+    {
+    }
+  }
+
+    public void WriteByte(int MemoryAddress, byte[] bytes, uint bytesToWrite)
+    {
+        try
+        {
+            this.OpenProcess();
+            int lpNumberOfBytesWritten;
+            ProcessMemoryReaderApi.WriteProcessMemory(this.m_hProcess, MemoryAddress, bytes, bytesToWrite, out lpNumberOfBytesWritten);
+            this.CloseHandle();
+        }
+        catch
+        {
+        }
     }
 
     public void WriteByte(int MemoryAddress, byte value)
