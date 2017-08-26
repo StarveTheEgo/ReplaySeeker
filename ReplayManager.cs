@@ -12,6 +12,7 @@ using System.Collections.Generic;
 
 namespace ReplaySeeker
 {
+    using ReplaySeeker.Core; 
     public struct OffsetsData
     {
         public int ReplayLengthOffset;
@@ -26,6 +27,7 @@ namespace ReplaySeeker
     }
     public class ReplayManager : IReplayManager
     {
+
         // @todo: learn to make private set here
         public static Dictionary<string, OffsetsData> VersionsData = new Dictionary<string, OffsetsData>();
         public static int GameDllBase { get; private set; }
@@ -392,7 +394,7 @@ namespace ReplaySeeker
             Thread.Sleep(ReplayManager.ReplayRestartWaitTime);
             if (minimized)
                 this.Minimized = true;
-            Application.OpenForms[0].Activate();
+            Application.OpenForms[0].SynchronizedInvoke(() => Application.OpenForms[0].Activate());
             Cursor.Position = position;
         }
 

@@ -172,7 +172,7 @@ namespace ReplaySeeker
         offsets.PauseOffset =               0x25BC;
         offsets.StatusCodeOffset =          0x2588;
         // Game.dll offsets
-        offsets.TurboModeOffset =           0xCA3E74; // Game.dll+CA3E74 // no effect for 1.28.2
+        offsets.TurboModeOffset =           0xCA3E74; // Game.dll+CA3E74 // no effect for 1.28
         ReplayManager.RegisterVersionData("1.28", offsets);
 
         // 1.27.X
