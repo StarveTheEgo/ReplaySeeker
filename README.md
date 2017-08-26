@@ -7,6 +7,13 @@ I can delete this project if authors dont want it to be here. But we really need
 
 Somewhat changelog:
 
+26.08.2017 
+**Stable:**
+
+
+- Small fixes
+- Auto acquiring administrator access
+
 ## 23.08.2017
 **Still beta:**
 
